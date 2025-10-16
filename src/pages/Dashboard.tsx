@@ -32,17 +32,21 @@ export const Dashboard = () => {
     color: cat.color,
   }));
 
-  const dailyData = transactions
-    .slice(0, 7)
-    .reverse()
-    .map(t => ({
-      date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      amount: t.amount,
-    }));
+  const dailyData = Array.isArray(transactions) 
+    ? transactions
+        .slice(0, 7)
+        .reverse()
+        .map(t => ({
+          date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          amount: t.amount,
+        }))
+    : [];
 
-  const recentTransactions = transactions.slice(0, 5);
+  const recentTransactions = Array.isArray(transactions) ? transactions.slice(0, 5) : [];
 
-  const budgetPercentage = stats ? (stats.total_spent / stats.budget_total) * 100 : 0;
+  const budgetPercentage = stats && stats.budget_total > 0 
+    ? (stats.total_spent / stats.budget_total) * 100 
+    : 0;
 
   return (
     <motion.div
@@ -62,11 +66,13 @@ export const Dashboard = () => {
           <div>
             <p className="text-white/80 text-sm mb-1">Total Spent</p>
             <p className="text-4xl font-bold">
-              {stats ? `€${stats.total_spent.toFixed(2)}` : '€0.00'}
+              €{stats?.total_spent?.toFixed(2) || '0.00'}
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-white/80">of €{stats?.budget_total.toFixed(2)} budget</span>
+            <span className="text-white/80">
+              of €{stats?.budget_total?.toFixed(2) || '0.00'} budget
+            </span>
             <div className="flex-1 h-2 bg-white/20 rounded-full overflow-hidden">
               <div
                 className="h-full bg-white rounded-full transition-all duration-500"
@@ -86,7 +92,7 @@ export const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-600">Budget Remaining</p>
               <p className="text-2xl font-bold text-primary-dark">
-                €{stats?.budget_remaining.toFixed(2) || '0.00'}
+                €{stats?.budget_remaining?.toFixed(2) || '0.00'}
               </p>
             </div>
           </div>
@@ -100,7 +106,7 @@ export const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-600">Budget Used</p>
               <p className="text-2xl font-bold text-primary-dark">
-                {stats?.percentage_used.toFixed(1) || '0'}%
+                {stats?.percentage_used?.toFixed(1) || '0'}%
               </p>
             </div>
           </div>
@@ -133,7 +139,9 @@ export const Dashboard = () => {
                   cy="50%"
                   outerRadius={80}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }: { name: string; percent: number }) => 
+                    `${name} ${(percent * 100).toFixed(0)}%`
+                  }
                 >
                   {categoryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -181,7 +189,9 @@ export const Dashboard = () => {
         {recentTransactions.length > 0 ? (
           <div className="space-y-3">
             {recentTransactions.map((transaction) => {
-              const category = categories.find(c => c.id === transaction.category_id);
+              const category = transaction.category_id 
+                ? categories.find(c => c.id === transaction.category_id)
+                : null;
               return (
                 <div
                   key={transaction.id}
@@ -190,17 +200,17 @@ export const Dashboard = () => {
                   <div className="flex items-center gap-3">
                     <div
                       className="w-10 h-10 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: category?.color + '20' }}
+                      style={{ backgroundColor: category?.color ? category.color + '20' : '#E5E7EB' }}
                     >
                       <div
                         className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: category?.color }}
+                        style={{ backgroundColor: category?.color || '#9CA3AF' }}
                       />
                     </div>
                     <div>
                       <p className="font-medium text-primary-dark">{transaction.description}</p>
                       <p className="text-sm text-gray-500">
-                        {category?.name} • {new Date(transaction.date).toLocaleDateString()}
+                        {category?.name || 'Uncategorized'} • {new Date(transaction.date).toLocaleDateString()}
                       </p>
                     </div>
                   </div>

@@ -36,7 +36,7 @@ export const authAPI = {
 export const transactionsAPI = {
   getAll: async (): Promise<Transaction[]> => {
     const { data } = await api.get('/transactions');
-    return data;
+    return Array.isArray(data) ? data : [];
   },
   create: async (transaction: Partial<Transaction>) => {
     const { data } = await api.post('/transactions', transaction);
@@ -55,7 +55,7 @@ export const transactionsAPI = {
 export const categoriesAPI = {
   getAll: async (): Promise<Category[]> => {
     const { data } = await api.get('/categories');
-    return data;
+    return Array.isArray(data) ? data : [];
   },
   create: async (category: Partial<Category>) => {
     const { data } = await api.post('/categories', category);

@@ -27,7 +27,15 @@ export const Transactions = () => {
     queryFn: categoriesAPI.getAll,
   });
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
+interface TransactionFormData {
+  amount: number;
+  currency: string;
+  date: string;
+  description: string;
+  category_id: string;
+}
+
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<TransactionFormData>();
 
   const createMutation = useMutation({
     mutationFn: transactionsAPI.create,
@@ -69,18 +77,19 @@ export const Transactions = () => {
       setValue('currency', transaction.currency);
       setValue('description', transaction.description);
       setValue('date', transaction.date.split('T')[0]);
-      setValue('category_id', transaction.category_id);
+      setValue('category_id', transaction.category_id || '');
     } else {
       setEditingTransaction(null);
       reset({
         currency: 'EUR',
         date: new Date().toISOString().split('T')[0],
+        category_id: '',
       });
     }
     setIsModalOpen(true);
   };
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: TransactionFormData) => {
     if (editingTransaction) {
       updateMutation.mutate({ id: editingTransaction.id, data });
     } else {
@@ -150,7 +159,9 @@ export const Transactions = () => {
             </thead>
             <tbody>
               {filteredTransactions.map((transaction) => {
-                const category = categories.find(c => c.id === transaction.category_id);
+                const category = transaction.category_id 
+                  ? categories.find(c => c.id === transaction.category_id)
+                  : null;
                 return (
                   <tr
                     key={transaction.id}
@@ -163,16 +174,20 @@ export const Transactions = () => {
                       {transaction.description}
                     </td>
                     <td className="py-4 px-4">
-                      <span
-                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
-                        style={{ backgroundColor: category?.color + '20', color: category?.color }}
-                      >
-                        <div
-                          className="w-2 h-2 rounded-full"
-                          style={{ backgroundColor: category?.color }}
-                        />
-                        {category?.name}
-                      </span>
+                      {category ? (
+                        <span
+                          className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                          style={{ backgroundColor: category.color + '20', color: category.color }}
+                        >
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          {category.name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">Uncategorized</span>
+                      )}
                     </td>
                     <td className="py-4 px-4 text-right font-semibold text-expense">
                       {transaction.amount.toFixed(2)}
@@ -205,7 +220,9 @@ export const Transactions = () => {
 
         <div className="lg:hidden space-y-3">
           {filteredTransactions.map((transaction) => {
-            const category = categories.find(c => c.id === transaction.category_id);
+            const category = transaction.category_id
+              ? categories.find(c => c.id === transaction.category_id)
+              : null;
             return (
               <div
                 key={transaction.id}
@@ -219,12 +236,16 @@ export const Transactions = () => {
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span>{new Date(transaction.date).toLocaleDateString()}</span>
                       <span>•</span>
-                      <span
-                        className="px-2 py-0.5 rounded-full text-xs"
-                        style={{ backgroundColor: category?.color + '20', color: category?.color }}
-                      >
-                        {category?.name}
-                      </span>
+                      {category ? (
+                        <span
+                          className="px-2 py-0.5 rounded-full text-xs"
+                          style={{ backgroundColor: category.color + '20', color: category.color }}
+                        >
+                          {category.name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">Uncategorized</span>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -324,18 +345,15 @@ export const Transactions = () => {
               Category
             </label>
             <select
-              {...register('category_id', { required: 'Category is required' })}
+              {...register('category_id')}
               className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white
                 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             >
-              <option value="">Select a category</option>
+              <option value="">No category</option>
               {categories.map(cat => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
-            {errors.category_id && (
-              <p className="mt-1 text-sm text-expense">{errors.category_id.message as string}</p>
-            )}
           </div>
 
           <div className="flex gap-3 pt-4">
