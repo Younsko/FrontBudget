@@ -33,6 +33,7 @@ export const Categories = () => {
     mutationFn: categoriesAPI.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
       setIsModalOpen(false);
       reset();
       setSelectedColor(PRESET_COLORS[0]);
@@ -40,10 +41,11 @@ export const Categories = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Category> }) =>
-      categoriesAPI.update(id, data),
+    mutationFn: ({ id, data }: { id: string | number; data: any }) =>
+      categoriesAPI.update(String(id), data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
       setIsModalOpen(false);
       setEditingCategory(null);
       reset();
@@ -52,10 +54,11 @@ export const Categories = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: categoriesAPI.delete,
+    mutationFn: (id: string | number) => categoriesAPI.delete(String(id)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 
@@ -74,7 +77,11 @@ export const Categories = () => {
   };
 
   const onSubmit = (data: any) => {
-    const payload = { ...data, color: selectedColor };
+    const payload = { 
+      name: data.name,
+      color: selectedColor,
+      budget: parseFloat(data.budget) || 0
+    };
     if (editingCategory) {
       updateMutation.mutate({ id: editingCategory.id, data: payload });
     } else {
@@ -82,8 +89,8 @@ export const Categories = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this category? All associated transactions will need to be reassigned.')) {
+  const handleDelete = (id: string | number) => {
+    if (confirm('Are you sure? All associated transactions will need reassignment.')) {
       deleteMutation.mutate(id);
     }
   };
@@ -95,7 +102,7 @@ export const Categories = () => {
       className="space-y-6"
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-primary-dark">Categories</h1>
+        <h1 className="text-3xl font-bold text-primary-dark dark:text-primary-light">Categories</h1>
         <Button
           variant="primary"
           onClick={() => handleOpenModal()}
@@ -109,7 +116,7 @@ export const Categories = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {categories.map((category) => {
           const spent = category.spent || 0;
-          const budget = category.budget;
+          const budget = category.budget || 0;
           const percentage = budget > 0 ? (spent / budget) * 100 : 0;
           const remaining = Math.max(0, budget - spent);
           const isOverBudget = spent > budget;
@@ -129,40 +136,40 @@ export const Categories = () => {
                       />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-primary-dark">{category.name}</h3>
-                      <p className="text-sm text-gray-600">€{budget.toFixed(2)} Budget</p>
+                      <h3 className="font-semibold text-primary-dark dark:text-white">{category.name}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">€{(budget || 0).toFixed(2)} Budget</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenModal(category)}
-                      className="p-2 hover:bg-info/10 rounded-lg transition-colors"
+                      className="p-2 hover:bg-info/10 dark:hover:bg-info-dark/20 rounded-lg transition-colors"
                     >
-                      <Edit2 className="w-4 h-4 text-info" />
+                      <Edit2 className="w-4 h-4 text-info dark:text-info-dark" />
                     </button>
                     <button
                       onClick={() => handleDelete(category.id)}
-                      className="p-2 hover:bg-expense/10 rounded-lg transition-colors"
+                      className="p-2 hover:bg-expense/10 dark:hover:bg-expense-dark/20 rounded-lg transition-colors"
                     >
-                      <Trash2 className="w-4 h-4 text-expense" />
+                      <Trash2 className="w-4 h-4 text-expense dark:text-expense-dark" />
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Spent</span>
-                    <span className={`font-semibold ${isOverBudget ? 'text-expense' : 'text-primary-dark'}`}>
-                      €{spent.toFixed(2)}
+                    <span className="text-gray-600 dark:text-gray-400">Spent</span>
+                    <span className={`font-semibold ${isOverBudget ? 'text-expense dark:text-expense-dark' : 'text-primary-dark dark:text-white'}`}>
+                      €{(spent || 0).toFixed(2)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Remaining</span>
-                    <span className={`font-semibold ${isOverBudget ? 'text-expense' : 'text-primary'}`}>
-                      €{remaining.toFixed(2)}
+                    <span className="text-gray-600 dark:text-gray-400">Remaining</span>
+                    <span className={`font-semibold ${isOverBudget ? 'text-expense dark:text-expense-dark' : 'text-primary dark:text-primary-light'}`}>
+                      €{(remaining || 0).toFixed(2)}
                     </span>
                   </div>
-                  <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="w-full h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -172,11 +179,11 @@ export const Categories = () => {
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className={`font-medium ${isOverBudget ? 'text-expense' : 'text-gray-600'}`}>
+                    <span className={`font-medium ${isOverBudget ? 'text-expense dark:text-expense-dark' : 'text-gray-600 dark:text-gray-400'}`}>
                       {percentage.toFixed(0)}% used
                     </span>
                     {isOverBudget && (
-                      <span className="flex items-center gap-1 text-expense">
+                      <span className="flex items-center gap-1 text-expense dark:text-expense-dark">
                         <TrendingUp className="w-3 h-3" />
                         Over budget
                       </span>
@@ -191,7 +198,7 @@ export const Categories = () => {
 
       {categories.length === 0 && (
         <Card>
-          <div className="py-12 text-center text-gray-400">
+          <div className="py-12 text-center text-gray-400 dark:text-gray-500">
             No categories yet. Create your first category to start organizing your budget!
           </div>
         </Card>
@@ -231,7 +238,7 @@ export const Categories = () => {
           />
 
           <div>
-            <label className="block text-sm font-medium text-primary-dark mb-3">
+            <label className="block text-sm font-medium text-primary-dark dark:text-primary-light mb-3">
               Category Color
             </label>
             <div className="grid grid-cols-5 gap-3">
@@ -242,7 +249,7 @@ export const Categories = () => {
                   onClick={() => setSelectedColor(color)}
                   className={`w-full aspect-square rounded-lg transition-all ${
                     selectedColor === color
-                      ? 'ring-2 ring-offset-2 ring-primary scale-110'
+                      ? 'ring-2 ring-offset-2 dark:ring-offset-chalk-dark ring-primary scale-110'
                       : 'hover:scale-105'
                   }`}
                   style={{ backgroundColor: color }}

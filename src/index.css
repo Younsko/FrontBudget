@@ -6,12 +6,16 @@
 
 @layer base {
   body {
-    @apply bg-chalk text-primary-dark font-sans antialiased;
+    @apply bg-chalk dark:bg-chalk-dark text-primary-dark dark:text-white font-sans antialiased transition-colors duration-200;
   }
 }
 
 @layer utilities {
   .glass-effect {
     @apply bg-white/60 backdrop-blur-sm border border-white/20;
+  }
+  
+  .dark .glass-effect {
+    @apply bg-secondary-dark/60 backdrop-blur-sm border border-secondary-dark/20;
   }
 }

@@ -44,16 +44,16 @@ export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalPr
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className={`bg-white rounded-2xl shadow-card w-full ${sizes[size]} max-h-[90vh] overflow-y-auto`}
+              className={`bg-white dark:bg-secondary-dark rounded-2xl shadow-card dark:shadow-card-dark w-full ${sizes[size]} max-h-[90vh] overflow-y-auto`}
             >
               {title && (
-                <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                  <h2 className="text-xl font-semibold text-primary-dark">{title}</h2>
+                <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-secondary-dark-lighter">
+                  <h2 className="text-xl font-semibold text-primary-dark dark:text-white">{title}</h2>
                   <button
                     onClick={onClose}
-                    className="p-1 hover:bg-secondary rounded-lg transition-colors"
+                    className="p-1 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg transition-colors"
                   >
-                    <X className="w-5 h-5 text-gray-500" />
+                    <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                   </button>
                 </div>
               )}

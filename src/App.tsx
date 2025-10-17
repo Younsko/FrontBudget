@@ -9,6 +9,7 @@ import { Transactions } from './pages/Transactions';
 import { Categories } from './pages/Categories';
 import { Profile } from './pages/Profile';
 import { Settings } from './pages/Settings';
+import { useEffect, useState } from 'react';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,6 +21,27 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  const [isDark, setIsDark] = useState(() => {
+    // Vérifier les préférences sauvegardées ou le système
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const html = document.documentElement;
+    if (isDark) {
+      html.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      html.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -30,7 +52,7 @@ function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Layout>
+                <Layout isDark={isDark} setIsDark={setIsDark}>
                   <Dashboard />
                 </Layout>
               </ProtectedRoute>
@@ -40,7 +62,7 @@ function App() {
             path="/transactions"
             element={
               <ProtectedRoute>
-                <Layout>
+                <Layout isDark={isDark} setIsDark={setIsDark}>
                   <Transactions />
                 </Layout>
               </ProtectedRoute>
@@ -50,7 +72,7 @@ function App() {
             path="/categories"
             element={
               <ProtectedRoute>
-                <Layout>
+                <Layout isDark={isDark} setIsDark={setIsDark}>
                   <Categories />
                 </Layout>
               </ProtectedRoute>
@@ -60,7 +82,7 @@ function App() {
             path="/profile"
             element={
               <ProtectedRoute>
-                <Layout>
+                <Layout isDark={isDark} setIsDark={setIsDark}>
                   <Profile />
                 </Layout>
               </ProtectedRoute>
@@ -70,7 +92,7 @@ function App() {
             path="/settings"
             element={
               <ProtectedRoute>
-                <Layout>
+                <Layout isDark={isDark} setIsDark={setIsDark}>
                   <Settings />
                 </Layout>
               </ProtectedRoute>
