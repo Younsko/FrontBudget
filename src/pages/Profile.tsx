@@ -23,7 +23,6 @@ export const Profile = () => {
     values: user ? {
       name: user.name,
       profilePhotoUrl: user.avatar || '',
-      password: '',
     } : undefined
   });
 
@@ -40,18 +39,12 @@ export const Profile = () => {
   const onSubmit = (data: any) => {
     const payload: any = {};
     
-    // Only send fields that have values
     if (data.name && data.name.trim()) {
       payload.name = data.name.trim();
     }
     
     if (data.profilePhotoUrl !== undefined) {
       payload.profilePhotoUrl = data.profilePhotoUrl.trim() || null;
-    }
-    
-    // Only include password if user entered one
-    if (data.password && data.password.trim()) {
-      payload.password = data.password;
     }
 
     updateMutation.mutate(payload);
@@ -164,26 +157,6 @@ export const Profile = () => {
             error={errors.profilePhotoUrl?.message as string}
           />
 
-          <div className="relative">
-            <Input
-              label="New Password (leave empty to keep current)"
-              type={showPassword ? 'text' : 'password'}
-              icon={<UserIcon className="w-5 h-5" />}
-              placeholder="Enter new password"
-              {...register('password', {
-                minLength: { value: 6, message: 'Password must be at least 6 characters' }
-              })}
-              error={errors.password?.message as string}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-9 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-            </button>
-          </div>
-
           <div className="flex gap-3 pt-4">
             <Button
               type="button"
@@ -192,7 +165,6 @@ export const Profile = () => {
               onClick={() => {
                 setIsEditModalOpen(false);
                 reset();
-                setShowPassword(false);
               }}
             >
               Cancel

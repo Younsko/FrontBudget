@@ -31,21 +31,26 @@ export const Register = () => {
 
   const password = watch('password');
 
-  const onSubmit = async (data: RegisterForm) => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const { confirmPassword, ...registerData } = data;
-      const response = await authAPI.register(registerData);
-      setAuth(response.user, response.token);
-      navigate('/dashboard');
-    } catch (err: any) {
+const onSubmit = async (data: RegisterForm) => {
+  setIsLoading(true);
+  setError('');
+  try {
+    const { confirmPassword, ...registerData } = data;
+    const response = await authAPI.register(registerData);
+    setAuth(response.user, response.token);
+    navigate('/onboarding');
+  } catch (err: any) {
+    // Afficher les erreurs de validation détaillées
+    if (err.response?.data?.errors) {
+      const errorMessages = Object.values(err.response.data.errors).flat();
+      setError(errorMessages.join(', '));
+    } else {
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
-  };
-
+  } finally {
+    setIsLoading(false);
+  }
+};
   return (
       <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-chalk">
       <motion.div
@@ -125,17 +130,21 @@ export const Register = () => {
               )}
             </div>
 
-            <Input
-              label="Password"
-              type="password"
-              icon={<Lock className="w-5 h-5" />}
-              placeholder="Create a password"
-              {...register('password', {
-                required: 'Password is required',
-                minLength: { value: 6, message: 'Password must be at least 6 characters' }
-              })}
-              error={errors.password?.message}
-            />
+          <Input
+  label="Password"
+  type="password"
+  icon={<Lock className="w-5 h-5" />}
+  placeholder="Create a secure password"
+  {...register('password', {
+    required: 'Password is required',
+    minLength: { value: 6, message: 'Password must be at least 6 characters' },
+    pattern: {
+      value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+      message: 'Password must contain uppercase, lowercase, number and special character'
+    }
+  })}
+  error={errors.password?.message}
+/>
 
             <Input
               label="Confirm Password"

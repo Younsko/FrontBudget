@@ -1,24 +1,31 @@
 import { useQuery } from '@tanstack/react-query';
-import { TrendingUp, DollarSign, Activity, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { TrendingUp, DollarSign, Activity, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { transactionsAPI, categoriesAPI, userAPI } from '../services/api';
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { useCurrency } from '../hooks/useCurrency';
 
 export const Dashboard = () => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const { data: user } = useQuery({
     queryKey: ['profile'],
     queryFn: userAPI.getProfile,
   });
 
+  const { currency, formatAmount, convertAmount } = useCurrency();
+
+  // Récupérer les stats pour le mois sélectionné
   const { data: stats } = useQuery({
-    queryKey: ['stats'],
-    queryFn: userAPI.getStats,
+    queryKey: ['stats', selectedDate.getFullYear(), selectedDate.getMonth() + 1],
+    queryFn: () => userAPI.getStats(selectedDate.getFullYear(), selectedDate.getMonth() + 1),
   });
 
-  const { data: transactions = [] } = useQuery({
+  // Récupérer TOUTES les transactions pour filtrer côté frontend
+  const { data: allTransactions = [] } = useQuery({
     queryKey: ['transactions'],
     queryFn: transactionsAPI.getAll,
   });
@@ -28,58 +35,121 @@ export const Dashboard = () => {
     queryFn: categoriesAPI.getAll,
   });
 
-  const currentMonth = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  // Filtrer les transactions pour le mois sélectionné
+  const filteredTransactions = allTransactions.filter(transaction => {
+    const transactionDate = new Date(transaction.date);
+    return transactionDate.getMonth() === selectedDate.getMonth() && 
+           transactionDate.getFullYear() === selectedDate.getFullYear();
+  });
+
+  // Calculer les totaux avec conversion de currency
+  const totalSpent = filteredTransactions.reduce((sum, transaction) => {
+    return sum + convertAmount(transaction.amount || 0, transaction.currency);
+  }, 0);
+
+  const totalBudget = categories.reduce((sum, category) => {
+    return sum + (category.monthlyBudget || 0);
+  }, 0);
+
+  const budgetRemaining = Math.max(0, totalBudget - totalSpent);
+  const budgetPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+  const currentMonth = selectedDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const firstName = user?.name.split(' ')[0] || 'User';
 
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedDate);
+    if (direction === 'prev') {
+      newDate.setMonth(newDate.getMonth() - 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
+    setSelectedDate(newDate);
+  };
+
+  // Données pour le camembert avec conversion
   const categoryData = categories
-    .filter(cat => (cat.spent || 0) > 0)
-    .map(cat => ({
-      name: cat.name,
-      value: cat.spent || 0,
-      color: cat.color,
+    .map(cat => {
+      const spent = filteredTransactions
+        .filter(t => t.category_id === cat.id)
+        .reduce((sum, t) => sum + convertAmount(t.amount || 0, t.currency), 0);
+      
+      return {
+        name: cat.name,
+        value: spent,
+        color: cat.color,
+      };
+    })
+    .filter(cat => cat.value > 0);
+
+  // Transactions non catégorisées
+  const uncategorizedSpent = filteredTransactions
+    .filter(t => !t.category_id)
+    .reduce((sum, t) => sum + convertAmount(t.amount || 0, t.currency), 0);
+
+  if (uncategorizedSpent > 0) {
+    categoryData.push({
+      name: 'Uncategorized',
+      value: uncategorizedSpent,
+      color: '#9CA3AF',
+    });
+  }
+
+  // Données pour les 7 derniers jours du mois sélectionné
+  const dailyData = filteredTransactions
+    .slice(-7)
+    .map(t => ({
+      date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      amount: convertAmount(t.amount || 0, t.currency),
     }));
 
-  const dailyData = Array.isArray(transactions) 
-    ? transactions
-        .slice(0, 7)
-        .reverse()
-        .map(t => ({
-          date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          amount: t.amount,
-        }))
-    : [];
-
-  const recentTransactions = Array.isArray(transactions) ? transactions.slice(0, 5) : [];
-
-  const budgetPercentage = stats && stats.budget_total > 0 
-    ? (stats.total_spent / stats.budget_total) * 100 
-    : 0;
+  const recentTransactions = filteredTransactions.slice(0, 5);
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
-      <div>
-        <h1 className="text-3xl font-bold text-primary-dark dark:text-primary-light mb-1">
-          Hello {firstName} 👋
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">{currentMonth}</p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* Header avec navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-primary-dark dark:text-primary-light mb-1">
+            Hello {firstName} 👋
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">Welcome to your dashboard</p>
+        </div>
+        
+        <div className="flex items-center gap-4 bg-white dark:bg-secondary-dark rounded-lg p-2 shadow-soft dark:shadow-soft-dark">
+          <button
+            onClick={() => navigateMonth('prev')}
+            className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg transition-colors"
+            title="Previous month"
+          >
+            <ChevronLeft className="w-5 h-5 text-primary-dark dark:text-primary-light" />
+          </button>
+          <span className="font-semibold text-primary-dark dark:text-white min-w-[140px] text-center">
+            {currentMonth}
+          </span>
+          <button
+            onClick={() => navigateMonth('next')}
+            className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg transition-colors"
+            title="Next month"
+          >
+            <ChevronRight className="w-5 h-5 text-primary-dark dark:text-primary-light" />
+          </button>
+        </div>
       </div>
 
+      {/* Carte principale */}
       <Card className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-dark to-primary-dark dark:from-primary-light dark:via-primary dark:to-primary-dark opacity-90"></div>
         <div className="relative z-10 space-y-4 text-white dark:text-primary-dark">
           <div>
-            <p className="text-white/80 dark:text-primary-dark/80 text-sm mb-1">Total Spent</p>
+            <p className="text-white/80 dark:text-primary-dark/80 text-sm mb-1">Total Spent in {currentMonth}</p>
             <p className="text-4xl font-bold">
-              €{(stats?.total_spent || 0).toFixed(2)}
+              {formatAmount(totalSpent)}
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span className="text-white/80 dark:text-primary-dark/80">
-              of €{(stats?.budget_total || 0).toFixed(2)} budget
+              of {formatAmount(totalBudget)} budget
             </span>
             <div className="flex-1 h-2 bg-white/20 dark:bg-primary-dark/20 rounded-full overflow-hidden">
               <div
@@ -91,6 +161,7 @@ export const Dashboard = () => {
         </div>
       </Card>
 
+      {/* Cartes stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-primary/10 dark:bg-primary-light/10">
           <div className="flex items-center gap-4">
@@ -100,7 +171,7 @@ export const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Budget Remaining</p>
               <p className="text-2xl font-bold text-primary-dark dark:text-primary-light">
-                €{(stats?.budget_remaining || 0).toFixed(2)}
+                {formatAmount(budgetRemaining)}
               </p>
             </div>
           </div>
@@ -114,7 +185,7 @@ export const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Budget Used</p>
               <p className="text-2xl font-bold text-primary-dark dark:text-white">
-                {(stats?.percentage_used || 0).toFixed(1)}%
+                {budgetPercentage.toFixed(1)}%
               </p>
             </div>
           </div>
@@ -128,16 +199,19 @@ export const Dashboard = () => {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
               <p className="text-2xl font-bold text-primary-dark dark:text-white">
-                {stats?.transaction_count || 0}
+                {filteredTransactions.length}
               </p>
             </div>
           </div>
         </Card>
       </div>
 
+      {/* Graphiques */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <h2 className="text-lg font-semibold text-primary-dark dark:text-white mb-4">Spending by Category</h2>
+          <h2 className="text-lg font-semibold text-primary-dark dark:text-white mb-4">
+            Spending by Category - {currentMonth}
+          </h2>
           {categoryData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
@@ -147,7 +221,7 @@ export const Dashboard = () => {
                   cy="50%"
                   outerRadius={80}
                   dataKey="value"
-                  label={({ name, percent }: { name: string; percent: number }) => 
+                  label={({ name, percent }) => 
                     `${name} ${(percent * 100).toFixed(0)}%`
                   }
                 >
@@ -155,39 +229,59 @@ export const Dashboard = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value: number) => [formatAmount(value), 'Amount']}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500">
-              No spending data yet
+              No spending data for {currentMonth}
             </div>
           )}
         </Card>
 
         <Card>
-          <h2 className="text-lg font-semibold text-primary-dark dark:text-white mb-4">Daily Spending</h2>
+          <h2 className="text-lg font-semibold text-primary-dark dark:text-white mb-4">
+            Recent Spending - {currentMonth}
+          </h2>
           {dailyData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={dailyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="amount" stroke="#17B169" strokeWidth={2} />
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  tickFormatter={(value) => formatAmount(value)}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [formatAmount(value), 'Amount']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="amount" 
+                  stroke="#17B169" 
+                  strokeWidth={2} 
+                />
               </LineChart>
             </ResponsiveContainer>
           ) : (
             <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500">
-              No transaction data yet
+              No transaction data for {currentMonth}
             </div>
           )}
         </Card>
       </div>
 
+      {/* Transactions récentes */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-primary-dark dark:text-white">Recent Transactions</h2>
+          <h2 className="text-lg font-semibold text-primary-dark dark:text-white">
+            Recent Transactions - {currentMonth}
+          </h2>
           <Link to="/transactions">
             <Button variant="ghost" size="sm">
               View All <ArrowRight className="w-4 h-4 ml-1" />
@@ -196,10 +290,9 @@ export const Dashboard = () => {
         </div>
         {recentTransactions.length > 0 ? (
           <div className="space-y-3">
-            {recentTransactions.map((transaction) => {
-              const category = transaction.category_id 
-                ? categories.find(c => String(c.id) === String(transaction.category_id))
-                : null;
+            {recentTransactions.map(transaction => {
+              const category = transaction.category_id ? 
+                categories.find(c => String(c.id) === String(transaction.category_id)) : null;
               return (
                 <div
                   key={transaction.id}
@@ -210,10 +303,7 @@ export const Dashboard = () => {
                       className="w-10 h-10 rounded-lg flex items-center justify-center"
                       style={{ backgroundColor: category?.color ? category.color + '20' : '#E5E7EB' }}
                     >
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: category?.color || '#9CA3AF' }}
-                      />
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: category?.color || '#9CA3AF' }} />
                     </div>
                     <div>
                       <p className="font-medium text-primary-dark dark:text-white">{transaction.description}</p>
@@ -224,7 +314,7 @@ export const Dashboard = () => {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-expense dark:text-expense-dark">
-                      -{transaction.currency} {(transaction.amount || 0).toFixed(2)}
+                      -{formatAmount(transaction.amount || 0, transaction.currency)}
                     </p>
                   </div>
                 </div>
@@ -233,7 +323,7 @@ export const Dashboard = () => {
           </div>
         ) : (
           <div className="py-12 text-center text-gray-400 dark:text-gray-500">
-            No transactions yet. Start by adding your first transaction!
+            No transactions for {currentMonth}. Start by adding your first transaction!
           </div>
         )}
       </Card>

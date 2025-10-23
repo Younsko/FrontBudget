@@ -130,15 +130,16 @@ export const userAPI = {
     };
   },
 
-  updateProfile: async (userData: { name?: string; password?: string; profilePhotoUrl?: string }) => {
-    const payload: any = {};
-    if (userData.name) payload.name = userData.name;
-    if (userData.password) payload.password = userData.password;
-    if (userData.profilePhotoUrl !== undefined) payload.profilePhotoUrl = userData.profilePhotoUrl;
-    
-    const { data } = await api.put('/user/profile', payload);
-    return data;
-  },
+updateProfile: async (userData: { name?: string; password?: string; profilePhotoUrl?: string; preferredCurrency?: string }) => {
+  const payload: any = {};
+  if (userData.name) payload.name = userData.name;
+  if (userData.password) payload.password = userData.password;
+  if (userData.profilePhotoUrl !== undefined) payload.profilePhotoUrl = userData.profilePhotoUrl;
+  if (userData.preferredCurrency) payload.preferredCurrency = userData.preferredCurrency;
+  
+  const { data } = await api.put('/user/profile', payload);
+  return data;
+},
 
   updateSettings: async (settings: { preferredCurrency?: string }) => {
     const payload: any = {};
@@ -152,21 +153,22 @@ export const userAPI = {
     return data;
   },
 
-  deleteAccount: async (password: string, confirmation: string) => {
-    if (!password || password.trim() === '') {
-      throw new Error("Password is required");
-    }
-    if (confirmation !== "DELETE_ZONE1") {
-      throw new Error('Confirmation phrase must be "DELETE_ZONE1"');
-    }
-    const payload = {
-      password: password,
-      confirmation: confirmation,
-    };
+deleteAccount: async (password: string, confirmation: string) => {
+  if (!password || password.trim() === '') {
+    throw new Error("Password is required");
+  }
+  if (confirmation !== "DELETE_ZONE1") {
+    throw new Error('Confirmation phrase must be "DELETE_ZONE1"');
+  }
+  
+  const payload = {
+    password: password,
+    confirmation: confirmation,
+  };
 
-    const { data } = await api.delete('/user/profile', { data: payload });
-    return data;
-  },
+  const { data } = await api.delete('/user/profile', { data: payload });
+  return data;
+},
 
   getStats: async (): Promise<Stats> => {
     const { data } = await api.get('/user/stats');

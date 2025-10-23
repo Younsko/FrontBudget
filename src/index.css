@@ -19,3 +19,20 @@
     @apply bg-secondary-dark/60 backdrop-blur-sm border border-secondary-dark/20;
   }
 }
+@layer components {
+  .btn-primary {
+    @apply bg-primary hover:bg-primary/90 dark:bg-primary-light dark:hover:bg-primary-light/90 text-white transition-all duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary hover:bg-secondary/80 dark:bg-secondary-dark dark:hover:bg-secondary-dark/80 text-primary-dark dark:text-primary-light transition-all duration-200;
+  }
+  
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-card dark:hover:shadow-card-dark hover:-translate-y-1;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-primary-dark dark:from-primary-light dark:to-primary bg-clip-text text-transparent;
+  }
+}

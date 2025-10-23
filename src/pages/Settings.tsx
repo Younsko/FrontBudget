@@ -21,6 +21,7 @@ export const Settings = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [language, setLanguage] = useState('en');
 
   const { data: user } = useQuery({
     queryKey: ['profile'],
@@ -37,12 +38,12 @@ export const Settings = () => {
 
   const newPassword = watch('newPassword');
 
-  const updateCurrencyMutation = useMutation({
-    mutationFn: (currency: string) => userAPI.updateSettings({ preferredCurrency: currency }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-    },
-  });
+const updateCurrencyMutation = useMutation({
+  mutationFn: (currency: string) => userAPI.updateProfile({ preferredCurrency: currency }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['profile'] });
+  },
+});
 
   const deleteAccountMutation = useMutation({
     mutationFn: ({ password, confirmation }: { password: string; confirmation: string }) =>
@@ -52,26 +53,34 @@ export const Settings = () => {
       navigate('/login');
     },
   });
-
-  const onPasswordSubmit = (data: any) => {
-    console.log('Password change:', data);
+const updatePasswordMutation = useMutation({
+  mutationFn: (data: any) => userAPI.updateProfile({ 
+    password: data.newPassword 
+  }),
+  onSuccess: () => {
     setIsPasswordModalOpen(false);
     resetPassword();
     setShowCurrentPassword(false);
     setShowNewPassword(false);
     setShowConfirmPassword(false);
-  };
+  },
+});
+const onPasswordSubmit = (data: any) => {
+  updatePasswordMutation.mutate(data);
+};
 
-  const onCurrencySubmit = (data: any) => {
+const onCurrencySubmit = (data: any) => {
+  if (data.currency) {
     updateCurrencyMutation.mutate(data.currency);
-  };
+  }
+};
 
-  const onDeleteSubmit = (data: any) => {
-    deleteAccountMutation.mutate({
-      password: data.password,
-      confirmation: data.confirmation
-    });
-  };
+const onDeleteSubmit = (data: any) => {
+  deleteAccountMutation.mutate({
+    password: data.password,
+    confirmation: data.confirmation
+  });
+};
 
   return (
     <motion.div
@@ -128,23 +137,24 @@ export const Settings = () => {
               <option value="CAD">CAD - Canadian Dollar</option>
             </select>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-primary-dark dark:text-white mb-2">
-              Language
-            </label>
-            <select
-              defaultValue="en"
-              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-secondary-dark
-                focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent
-                text-primary-dark dark:text-white"
-            >
-              <option value="en">English</option>
-              <option value="fr">Français</option>
-              <option value="es">Español</option>
-              <option value="de">Deutsch</option>
-            </select>
-          </div>
+    
+<div>
+  <label className="block text-sm font-medium text-primary-dark dark:text-white mb-2">
+    Language
+  </label>
+  <select
+    value={language}
+    onChange={(e) => setLanguage(e.target.value)}
+    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-secondary-dark
+      focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent
+      text-primary-dark dark:text-white"
+  >
+    <option value="en">English</option>
+    <option value="fr">Français</option>
+    <option value="es">Español</option>
+    <option value="de">Deutsch</option>
+  </select>
+</div>
 
           <Button type="submit" variant="primary" disabled={updateCurrencyMutation.isPending}>
             {updateCurrencyMutation.isPending ? 'Saving...' : 'Save Preferences'}

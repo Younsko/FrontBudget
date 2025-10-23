@@ -62,38 +62,66 @@ export const Transactions = () => {
     },
   });
 
-  const handleOpenModal = (transaction?: Transaction) => {
-    if (transaction) {
-      setEditingTransaction(transaction);
-      setValue('amount', transaction.amount);
-      setValue('currency', transaction.currency);
-      setValue('description', transaction.description);
-      setValue('date', transaction.date.split('T')[0]);
-      setValue('category_id', transaction.category_id || '');
-    } else {
-      setEditingTransaction(null);
-      reset({
-        currency: 'EUR',
-        date: new Date().toISOString().split('T')[0],
-        category_id: '',
-      });
-    }
-    setIsModalOpen(true);
-  };
+const handleOpenModal = (transaction?: Transaction) => {
+  if (transaction) {
+    setEditingTransaction(transaction);
+    setValue('amount', transaction.amount);
+    setValue('currency', transaction.currency);
+    setValue('description', transaction.description);
+    
+    const transactionDate = new Date(transaction.date);
+    const formattedDate = transactionDate.toISOString().split('T')[0];
+    setValue('date', formattedDate);
+    
+    setValue('category_id', transaction.category_id || '');
+  } else {
+    setEditingTransaction(null);
+    const today = new Date().toISOString().split('T')[0];
+    reset({
+      currency: 'EUR',
+      date: today,
+      category_id: '',
+      amount: '',
+      description: ''
+    });
+  }
+  setIsModalOpen(true);
+};
 
-  const onSubmit = (data: any) => {
-    const payload = {
-      amount: parseFloat(data.amount) || 0,
-      currency: data.currency,
-      description: data.description,
-      category_id: data.category_id ? parseInt(data.category_id) : null,
-    };
-    if (editingTransaction) {
-      updateMutation.mutate({ id: editingTransaction.id, data: payload });
-    } else {
-      createMutation.mutate(payload);
-    }
+const onSubmit = (data: any) => {
+  console.log('Form data:', data);
+
+  let transactionDate;
+  if (data.date) {
+    
+    const selectedDate = new Date(data.date);
+    transactionDate = new Date(Date.UTC(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      12, 0, 0 
+    )).toISOString();
+  } else {
+    transactionDate = new Date().toISOString();
+  }
+
+  const payload = {
+    amount: parseFloat(data.amount) || 0,
+    currency: data.currency,
+    description: data.description,
+    categoryId: data.category_id ? parseInt(data.category_id) : null,
+    date: transactionDate, 
   };
+  
+  console.log('Payload final:', payload);
+  
+  if (editingTransaction) {
+    updateMutation.mutate({ id: editingTransaction.id, data: payload });
+  } else {
+    createMutation.mutate(payload);
+  }
+};
+
 
   const handleDelete = (id: string | number) => {
     if (confirm('Are you sure you want to delete this transaction?')) {
