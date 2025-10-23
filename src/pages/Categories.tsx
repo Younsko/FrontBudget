@@ -63,6 +63,7 @@ export const Categories = () => {
     },
   });
 
+  
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => categoriesAPI.delete(String(id)),
     onSuccess: () => {
