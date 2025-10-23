@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { User as UserIcon, Mail, DollarSign, Calendar, Edit2 } from 'lucide-react';
+import { User as UserIcon, Mail, Calendar, Edit2, Image, Eye, EyeOff } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -12,17 +12,18 @@ import { motion } from 'framer-motion';
 export const Profile = () => {
   const queryClient = useQueryClient();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { data: user } = useQuery({
     queryKey: ['profile'],
     queryFn: userAPI.getProfile,
   });
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset } = useForm({
     values: user ? {
       name: user.name,
-      email: user.email,
-      currency: user.currency,
+      profilePhotoUrl: user.avatar || '',
+      password: '',
     } : undefined
   });
 
@@ -30,17 +31,23 @@ export const Profile = () => {
     mutationFn: userAPI.updateProfile,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
       setIsEditModalOpen(false);
+      reset();
     },
   });
 
   const onSubmit = (data: any) => {
-    updateMutation.mutate({
+    const payload: any = {
       name: data.name,
-      email: data.email,
-      currency: data.currency,
-    });
+      profilePhotoUrl: data.profilePhotoUrl || null,
+    };
+    
+    // Only include password if user entered one
+    if (data.password && data.password.trim() !== '') {
+      payload.password = data.password;
+    }
+
+    updateMutation.mutate(payload);
   };
 
   if (!user) {
@@ -64,7 +71,18 @@ export const Profile = () => {
       <Card>
         <div className="flex flex-col items-center text-center pb-6 border-b border-gray-100 dark:border-gray-700">
           <div className="mb-4">
-            <div className="w-24 h-24 bg-gradient-to-br from-primary to-primary-dark dark:from-primary-light dark:to-primary rounded-full flex items-center justify-center text-white dark:text-primary-dark text-3xl font-bold">
+            {user.avatar ? (
+              <img 
+                src={user.avatar} 
+                alt={user.name}
+                className="w-24 h-24 rounded-full object-cover border-2 border-primary dark:border-primary-light"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+            ) : null}
+            <div className={`w-24 h-24 bg-gradient-to-br from-primary to-primary-dark dark:from-primary-light dark:to-primary rounded-full flex items-center justify-center text-white dark:text-primary-dark text-3xl font-bold ${user.avatar ? 'hidden' : ''}`}>
               {initials}
             </div>
           </div>
@@ -80,16 +98,6 @@ export const Profile = () => {
             <div className="flex-1">
               <p className="text-sm text-gray-600 dark:text-gray-400">Email</p>
               <p className="font-medium text-primary-dark dark:text-white">{user.email}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary dark:bg-secondary-dark">
-            <div className="w-12 h-12 bg-primary/10 dark:bg-primary-light/20 rounded-xl flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-primary dark:text-primary-light" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Preferred Currency</p>
-              <p className="font-medium text-primary-dark dark:text-white">{user.currency}</p>
             </div>
           </div>
 
@@ -125,7 +133,11 @@ export const Profile = () => {
 
       <Modal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          reset();
+          setShowPassword(false);
+        }}
         title="Edit Profile"
         size="md"
       >
@@ -138,34 +150,31 @@ export const Profile = () => {
           />
 
           <Input
-            label="Email"
-            type="email"
-            icon={<Mail className="w-5 h-5" />}
-            {...register('email', {
-              required: 'Email is required',
-              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' }
-            })}
-            error={errors.email?.message as string}
+            label="Profile Photo URL"
+            icon={<Image className="w-5 h-5" />}
+            placeholder="https://example.com/photo.jpg"
+            {...register('profilePhotoUrl')}
+            error={errors.profilePhotoUrl?.message as string}
           />
 
-          <div>
-            <label className="block text-sm font-medium text-primary-dark dark:text-primary-light mb-2">
-              Preferred Currency
-            </label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
-              <select
-                {...register('currency', { required: 'Currency is required' })}
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-secondary-dark
-                  focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent
-                  text-primary-dark dark:text-white dark:placeholder-gray-500"
-              >
-                <option value="EUR">EUR - Euro</option>
-                <option value="USD">USD - US Dollar</option>
-                <option value="GBP">GBP - British Pound</option>
-                <option value="CAD">CAD - Canadian Dollar</option>
-              </select>
-            </div>
+          <div className="relative">
+            <Input
+              label="New Password (leave empty to keep current)"
+              type={showPassword ? 'text' : 'password'}
+              icon={<UserIcon className="w-5 h-5" />}
+              placeholder="Enter new password"
+              {...register('password', {
+                minLength: { value: 6, message: 'Password must be at least 6 characters' }
+              })}
+              error={errors.password?.message as string}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-9 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -173,7 +182,11 @@ export const Profile = () => {
               type="button"
               variant="secondary"
               fullWidth
-              onClick={() => setIsEditModalOpen(false)}
+              onClick={() => {
+                setIsEditModalOpen(false);
+                reset();
+                setShowPassword(false);
+              }}
             >
               Cancel
             </Button>
