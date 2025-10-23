@@ -129,16 +129,45 @@ export const userAPI = {
       created_at: data.createdAt || new Date().toISOString(),
     };
   },
-  updateProfile: async (userData: any) => {
-    const { data } = await api.put('/user/profile', {
-      name: userData.name,
-      email: userData.email,
-      preferredCurrency: userData.currency,
-      profilePhotoUrl: userData.avatar,
-      password: userData.password,
-    });
+
+  updateProfile: async (userData: { name?: string; password?: string; profilePhotoUrl?: string }) => {
+    const payload: any = {};
+    if (userData.name) payload.name = userData.name;
+    if (userData.password) payload.password = userData.password;
+    if (userData.profilePhotoUrl !== undefined) payload.profilePhotoUrl = userData.profilePhotoUrl;
+    
+    const { data } = await api.put('/user/profile', payload);
     return data;
   },
+
+  updateSettings: async (settings: { preferredCurrency?: string }) => {
+    const payload: any = {};
+    if (settings.preferredCurrency && settings.preferredCurrency.trim() !== '') {
+      payload.preferredCurrency = settings.preferredCurrency.toUpperCase();
+    } else {
+      throw new Error("Preferred currency is required");
+    }
+
+    const { data } = await api.put('/user/settings', payload);
+    return data;
+  },
+
+  deleteAccount: async (password: string, confirmation: string) => {
+    if (!password || password.trim() === '') {
+      throw new Error("Password is required");
+    }
+    if (confirmation !== "DELETE_ZONE1") {
+      throw new Error('Confirmation phrase must be "DELETE_ZONE1"');
+    }
+    const payload = {
+      password: password,
+      confirmation: confirmation,
+    };
+
+    const { data } = await api.delete('/user/profile', { data: payload });
+    return data;
+  },
+
   getStats: async (): Promise<Stats> => {
     const { data } = await api.get('/user/stats');
     return {
@@ -150,5 +179,6 @@ export const userAPI = {
     };
   },
 };
+
 
 export default api;

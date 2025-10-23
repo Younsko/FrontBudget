@@ -19,7 +19,7 @@ export const Profile = () => {
     queryFn: userAPI.getProfile,
   });
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+   const { register, handleSubmit, formState: { errors }, reset } = useForm({
     values: user ? {
       name: user.name,
       profilePhotoUrl: user.avatar || '',
@@ -33,17 +33,24 @@ export const Profile = () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       setIsEditModalOpen(false);
       reset();
+      setShowPassword(false);
     },
   });
 
   const onSubmit = (data: any) => {
-    const payload: any = {
-      name: data.name,
-      profilePhotoUrl: data.profilePhotoUrl || null,
-    };
+    const payload: any = {};
+    
+    // Only send fields that have values
+    if (data.name && data.name.trim()) {
+      payload.name = data.name.trim();
+    }
+    
+    if (data.profilePhotoUrl !== undefined) {
+      payload.profilePhotoUrl = data.profilePhotoUrl.trim() || null;
+    }
     
     // Only include password if user entered one
-    if (data.password && data.password.trim() !== '') {
+    if (data.password && data.password.trim()) {
       payload.password = data.password;
     }
 
