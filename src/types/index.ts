@@ -21,6 +21,7 @@ export interface Transaction {
   created_at: string;
 }
 
+
 export interface Category {
   id: string;
   name: string;

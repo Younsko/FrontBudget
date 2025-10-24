@@ -37,10 +37,10 @@ export const Dashboard = () => {
 
   // Filtrer les transactions pour le mois sélectionné
   const filteredTransactions = allTransactions.filter(transaction => {
-    const transactionDate = new Date(transaction.date);
-    return transactionDate.getMonth() === selectedDate.getMonth() && 
-           transactionDate.getFullYear() === selectedDate.getFullYear();
-  });
+  const transactionDate = new Date(transaction.transactionDate); // ← transactionDate au lieu de date
+  return transactionDate.getMonth() === selectedDate.getMonth() && 
+         transactionDate.getFullYear() === selectedDate.getFullYear();
+});
 
   // Calculer les totaux avec conversion de currency
   const totalSpent = filteredTransactions.reduce((sum, transaction) => {

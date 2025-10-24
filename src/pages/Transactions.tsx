@@ -62,55 +62,56 @@ export const Transactions = () => {
     },
   });
 
-const handleOpenModal = (transaction?: Transaction) => {
-  if (transaction) {
-    setEditingTransaction(transaction);
-    setValue('amount', transaction.amount);
-    setValue('currency', transaction.currency);
-    setValue('description', transaction.description);
-    
-   const transactionDate = new Date(transaction.transactionDate);
-  const formattedDate = transactionDate.toISOString().split('T')[0];
-  setValue('date', formattedDate);  
-
-    
-    setValue('category_id', transaction.category_id || '');
-  } else {
-    setEditingTransaction(null);
-    const today = new Date().toISOString().split('T')[0];
-    reset({
-      currency: 'EUR',
-      date: today,
-      category_id: '',
-      amount: '',
-      description: ''
-    });
-  }
-  setIsModalOpen(true);
-};
-
-const onSubmit = async (data: any) => {
-  try {
-    const selectedDate = new Date(data.date + 'T00:00:00.000Z');
-    
-    const transactionData = {
-      amount: parseFloat(data.amount),
-      currency: data.currency,
-      description: data.description,
-      categoryId: data.category_id ? parseInt(data.category_id) : null,
-      date: selectedDate.toISOString(),
-    };
-
-    if (editingTransaction) {
-      await updateMutation.mutateAsync({ id: editingTransaction.id, data: transactionData });
+  const handleOpenModal = (transaction?: Transaction) => {
+    if (transaction) {
+      setEditingTransaction(transaction);
+      setValue('amount', transaction.amount);
+      setValue('currency', transaction.currency);
+      setValue('description', transaction.description);
+      
+      // Extraire jour, mois, année de la date
+      const transactionDate = new Date(transaction.transactionDate);
+      setValue('day', transactionDate.getDate());
+      setValue('month', transactionDate.getMonth() + 1); // Les mois commencent à 0
+      setValue('year', transactionDate.getFullYear());
+      
+      setValue('category_id', transaction.category_id || '');
     } else {
-      await createMutation.mutateAsync(transactionData);
+      setEditingTransaction(null);
+      const today = new Date();
+      reset({
+        amount: '',
+        currency: 'EUR',
+        description: '',
+        day: today.getDate(),
+        month: today.getMonth() + 1,
+        year: today.getFullYear(),
+        category_id: '',
+      });
     }
-  } catch (error) {
-    console.error("Error saving transaction:", error);
+    setIsModalOpen(true);
+  };
+
+const onSubmit = (data: any) => {
+  // Formater en DD-MM-YYYY
+  const formattedDate = `${String(data.day).padStart(2, '0')}-${String(data.month).padStart(2, '0')}-${data.year}`;
+  
+  const payload = {
+    amount: parseFloat(data.amount),
+    currency: data.currency,
+    description: data.description,
+    categoryId: data.category_id ? parseInt(data.category_id) : null,
+    date: formattedDate, // "27-10-2025"
+  };
+
+  console.log('Payload envoyé:', payload);
+
+  if (editingTransaction) {
+    updateMutation.mutate({ id: editingTransaction.id, data: payload });
+  } else {
+    createMutation.mutate(payload);
   }
 };
-
 
   const handleDelete = (id: string | number) => {
     if (confirm('Are you sure you want to delete this transaction?')) {
@@ -121,6 +122,24 @@ const onSubmit = async (data: any) => {
   const filteredTransactions = filterCategory
     ? transactions.filter(t => String(t.category_id) === String(filterCategory))
     : transactions;
+
+  // Générer les options pour les années (5 ans dans le passé, 5 ans dans le futur)
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
+  const months = [
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' }
+  ];
 
   return (
     <motion.div
@@ -184,7 +203,9 @@ const onSubmit = async (data: any) => {
                     className="border-b border-gray-50 dark:border-gray-700 hover:bg-secondary dark:hover:bg-secondary-dark transition-colors"
                   >
                     <td className="py-4 px-4 text-gray-600 dark:text-gray-400">
-                      {new Date(transaction.date).toLocaleDateString()}
+                      {transaction.transactionDate
+                        ? new Date(transaction.transactionDate.split('T')[0]).toLocaleDateString()
+                        : ''}
                     </td>
                     <td className="py-4 px-4 font-medium text-primary-dark dark:text-white">
                       {transaction.description}
@@ -342,16 +363,85 @@ const onSubmit = async (data: any) => {
             )}
           </div>
 
-          <Input
-    label="Date"
-    type="date"
-    {...register("date", { 
-      required: "Date is required",
-      valueAsDate: true 
-    })}
-    error={errors.date?.message}
-    icon={<Calendar className="w-4 h-4" />}
-  />
+          {/* Date inputs séparés */}
+          <div>
+            <label className="block text-sm font-medium text-primary-dark dark:text-primary-light mb-2">
+              Date
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {/* Jour */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Day</label>
+                <select
+                  {...register('day', { 
+                    required: 'Day is required',
+                    min: { value: 1, message: 'Invalid day' },
+                    max: { value: 31, message: 'Invalid day' }
+                  })}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-secondary-dark
+                    focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent
+                    text-primary-dark dark:text-white"
+                >
+                  {Array.from({ length: 31 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {i + 1}
+                    </option>
+                  ))}
+                </select>
+                {errors.day && (
+                  <p className="mt-1 text-xs text-expense dark:text-expense-dark">{errors.day.message as string}</p>
+                )}
+              </div>
+
+              {/* Mois */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Month</label>
+                <select
+                  {...register('month', { 
+                    required: 'Month is required',
+                    min: { value: 1, message: 'Invalid month' },
+                    max: { value: 12, message: 'Invalid month' }
+                  })}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-secondary-dark
+                    focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent
+                    text-primary-dark dark:text-white"
+                >
+                  {months.map(month => (
+                    <option key={month.value} value={month.value}>
+                      {month.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.month && (
+                  <p className="mt-1 text-xs text-expense dark:text-expense-dark">{errors.month.message as string}</p>
+                )}
+              </div>
+
+              {/* Année */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Year</label>
+                <select
+                  {...register('year', { 
+                    required: 'Year is required',
+                    min: { value: 2000, message: 'Year must be after 2000' },
+                    max: { value: 2100, message: 'Year must be before 2100' }
+                  })}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-secondary-dark
+                    focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent
+                    text-primary-dark dark:text-white"
+                >
+                  {years.map(year => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                {errors.year && (
+                  <p className="mt-1 text-xs text-expense dark:text-expense-dark">{errors.year.message as string}</p>
+                )}
+              </div>
+            </div>
+          </div>
 
           <Input
             label="Description"
