@@ -219,7 +219,7 @@ export const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Transactions récentes */}
+      {/* Recent Transactions */}
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-primary-dark dark:text-white">Recent Transactions - {currentMonth}</h2>
