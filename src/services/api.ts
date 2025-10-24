@@ -56,16 +56,17 @@ export const transactionsAPI = {
     const { data } = await api.get('/transactions');
     // Handle paginated response
     const transactions = Array.isArray(data) ? data : (data.data || []);
-    return transactions.map((t: any) => ({
-      id: t.id,
-      amount: t.amount || t.Amount,
-      currency: t.currency || t.Currency || 'EUR',
-      description: t.description || t.Description,
-      date: t.transactionDate || t.TransactionDate || new Date().toISOString(),
-      category_id: t.categoryId || t.CategoryId,
-      user_id: t.userId || t.UserId || '',
-      created_at: t.createdAt || t.CreatedAt || new Date().toISOString(),
-    }));
+return transactions.map((t: any) => ({
+  id: t.id,
+  amount: t.amount || t.Amount,
+  currency: t.currency || t.Currency || 'EUR',
+  description: t.description || t.Description,
+  date: t.transactionDate || t.TransactionDate || new Date().toISOString(),
+  category_id: t.categoryId || t.CategoryId,
+  user_id: t.userId || t.UserId || '',
+  created_at: t.createdAt || t.CreatedAt || new Date().toISOString(),
+}));
+
   },
   create: async (transaction: any) => {
     const { data } = await api.post('/transactions', transaction);

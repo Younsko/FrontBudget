@@ -69,9 +69,10 @@ const handleOpenModal = (transaction?: Transaction) => {
     setValue('currency', transaction.currency);
     setValue('description', transaction.description);
     
-    const transactionDate = new Date(transaction.date);
-    const formattedDate = transactionDate.toISOString().split('T')[0];
-    setValue('date', formattedDate);
+   const transactionDate = new Date(transaction.transactionDate);
+  const formattedDate = transactionDate.toISOString().split('T')[0];
+  setValue('date', formattedDate);  
+
     
     setValue('category_id', transaction.category_id || '');
   } else {
@@ -88,37 +89,24 @@ const handleOpenModal = (transaction?: Transaction) => {
   setIsModalOpen(true);
 };
 
-const onSubmit = (data: any) => {
-  console.log('Form data:', data);
+const onSubmit = async (data: any) => {
+  try {
+    const transactionData = {
+  ...data,
+  transactionDate: data.date instanceof Date
+    ? data.date.toISOString()
+    : new Date(data.date).toISOString(),
+  amount: parseFloat(data.amount),
+  categoryId: data.category_id ? parseInt(data.category_id) : null,
+};
 
-  let transactionDate;
-  if (data.date) {
-    
-    const selectedDate = new Date(data.date);
-    transactionDate = new Date(Date.UTC(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      12, 0, 0 
-    )).toISOString();
-  } else {
-    transactionDate = new Date().toISOString();
-  }
-
-  const payload = {
-    amount: parseFloat(data.amount) || 0,
-    currency: data.currency,
-    description: data.description,
-    categoryId: data.category_id ? parseInt(data.category_id) : null,
-    date: transactionDate, 
-  };
-  
-  console.log('Payload final:', payload);
-  
-  if (editingTransaction) {
-    updateMutation.mutate({ id: editingTransaction.id, data: payload });
-  } else {
-    createMutation.mutate(payload);
+    if (editingTransaction) {
+      await updateMutation.mutateAsync({ id: editingTransaction.id, data: transactionData });
+    } else {
+      await createMutation.mutateAsync(transactionData);
+    }
+  } catch (error) {
+    console.error("Error saving transaction:", error);
   }
 };
 
@@ -354,12 +342,15 @@ const onSubmit = (data: any) => {
           </div>
 
           <Input
-            label="Date"
-            type="date"
-            icon={<Calendar className="w-5 h-5" />}
-            {...register('date', { required: 'Date is required' })}
-            error={errors.date?.message as string}
-          />
+    label="Date"
+    type="date"
+    {...register("date", { 
+      required: "Date is required",
+      valueAsDate: true 
+    })}
+    error={errors.date?.message}
+    icon={<Calendar className="w-4 h-4" />}
+  />
 
           <Input
             label="Description"

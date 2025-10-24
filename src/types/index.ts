@@ -14,7 +14,7 @@ export interface Transaction {
   currency: string;
   description: string;
   merchant?: string;
-  date: string;
+  transactionDate: string;
   category_id: string | null;
   user_id: string;
   receipt_url?: string;
