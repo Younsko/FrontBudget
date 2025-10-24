@@ -91,14 +91,15 @@ const handleOpenModal = (transaction?: Transaction) => {
 
 const onSubmit = async (data: any) => {
   try {
+    const selectedDate = new Date(data.date + 'T00:00:00.000Z');
+    
     const transactionData = {
-  ...data,
-  transactionDate: data.date instanceof Date
-    ? data.date.toISOString()
-    : new Date(data.date).toISOString(),
-  amount: parseFloat(data.amount),
-  categoryId: data.category_id ? parseInt(data.category_id) : null,
-};
+      amount: parseFloat(data.amount),
+      currency: data.currency,
+      description: data.description,
+      categoryId: data.category_id ? parseInt(data.category_id) : null,
+      date: selectedDate.toISOString(),
+    };
 
     if (editingTransaction) {
       await updateMutation.mutateAsync({ id: editingTransaction.id, data: transactionData });
