@@ -115,6 +115,11 @@ export const transactionsAPI = {
     const { data } = await api.delete(`/transactions/${id}`);
     return data;
   },
+  
+  ocrPreview: async (imageData: string): Promise<any> => {
+  const response = await api.post('/transactions/ocr-preview', { image: imageData });
+  return response.data;
+},
 };
 
 export const categoriesAPI = {

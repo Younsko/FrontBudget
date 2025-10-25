@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Wallet, Mail, Lock, User as UserIcon, DollarSign } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, DollarSign } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { authAPI } from '../services/api';
 import { useAuthStore } from '../hooks/useAuth';
 import { motion } from 'framer-motion';
+import logo from '../assets/Budget_Buddy_green.png';
 
 interface RegisterForm {
   name: string;
@@ -24,50 +25,56 @@ export const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<RegisterForm>({
-    defaultValues: {
-      currency: 'EUR'
-    }
+    defaultValues: { currency: 'EUR' }
   });
 
   const password = watch('password');
 
-const onSubmit = async (data: RegisterForm) => {
-  setIsLoading(true);
-  setError('');
-  try {
-    const { confirmPassword, ...registerData } = data;
-    const response = await authAPI.register(registerData);
-    setAuth(response.user, response.token);
-    navigate('/onboarding');
-  } catch (err: any) {
-    // Afficher les erreurs de validation détaillées
-    if (err.response?.data?.errors) {
-      const errorMessages = Object.values(err.response.data.errors).flat();
-      setError(errorMessages.join(', '));
-    } else {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+  const onSubmit = async (data: RegisterForm) => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const { confirmPassword, ...registerData } = data;
+      const response = await authAPI.register(registerData);
+      setAuth(response.user, response.token);
+      navigate('/onboarding');
+    } catch (err: any) {
+      if (err.response?.data?.errors) {
+        const errorMessages = Object.values(err.response.data.errors).flat();
+        setError(errorMessages.join(', '));
+      } else {
+        setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
+
   return (
-      <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-chalk">
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-chalk">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
+        {/* --- En-tête avec logo --- */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-card">
-              <Wallet className="w-8 h-8 text-white" />
-            </div>
+            <div className="inline-flex items-center gap-3 mb-4">
+  <Link to="/">
+    <img
+      src={logo}
+      alt="Budget Buddy Logo"
+      className="w-16 h-16 object-contain rounded-xl shadow-card cursor-pointer"
+    />
+  </Link>
+</div>
           </div>
           <h1 className="text-3xl font-bold text-primary-dark mb-2">Create Account</h1>
           <p className="text-gray-600">Start managing your budget today</p>
         </div>
 
+        {/* --- Formulaire --- */}
         <div className="bg-white rounded-2xl shadow-card p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {error && (
@@ -130,21 +137,21 @@ const onSubmit = async (data: RegisterForm) => {
               )}
             </div>
 
-          <Input
-  label="Password"
-  type="password"
-  icon={<Lock className="w-5 h-5" />}
-  placeholder="Create a secure password"
-  {...register('password', {
-    required: 'Password is required',
-    minLength: { value: 6, message: 'Password must be at least 6 characters' },
-    pattern: {
-      value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-      message: 'Password must contain uppercase, lowercase, number and special character'
-    }
-  })}
-  error={errors.password?.message}
-/>
+            <Input
+              label="Password"
+              type="password"
+              icon={<Lock className="w-5 h-5" />}
+              placeholder="Create a secure password"
+              {...register('password', {
+                required: 'Password is required',
+                minLength: { value: 6, message: 'Password must be at least 6 characters' },
+                pattern: {
+                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+                  message: 'Password must contain uppercase, lowercase, number and special character'
+                }
+              })}
+              error={errors.password?.message}
+            />
 
             <Input
               label="Confirm Password"

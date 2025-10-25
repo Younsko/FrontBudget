@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, TrendingUp } from "lucide-react";
+import { Plus, Edit2, Trash2, TrendingUp, Activity } from "lucide-react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Modal } from "../components/Modal";
@@ -63,7 +63,6 @@ export const Categories = () => {
     },
   });
 
-  
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => categoriesAPI.delete(String(id)),
     onSuccess: () => {
@@ -106,12 +105,25 @@ export const Categories = () => {
     }
   };
 
+  // ----------------- FACTS / STATS -----------------
+  const stats = useMemo(() => {
+    if (!categories.length) return [];
+    const totalSpent = categories.reduce((sum, cat) => sum + (cat.spent || 0), 0);
+    const totalBudget = categories.reduce((sum, cat) => sum + (cat.budget || 0), 0);
+    const highestCategory = categories.reduce(
+      (prev, curr) => (curr.spent > (prev.spent || 0) ? curr : prev),
+      {} as Category
+    );
+    return [
+      { title: "Categories", value: categories.length },
+      { title: "Total Spent", value: `€${totalSpent.toFixed(2)}` },
+      { title: "Highest Spent", value: highestCategory.name || "N/A" },
+    ];
+  }, [categories]);
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-6"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* Page Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-primary-dark dark:text-primary-light">
           Categories
@@ -126,7 +138,20 @@ export const Categories = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Facts / Cards */}
+      {categories.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {stats.map((stat, idx) => (
+            <Card key={idx} className="p-4 bg-primary/10 dark:bg-primary-dark/20 flex flex-col items-center justify-center">
+              <h3 className="text-sm text-primary-dark dark:text-primary-light">{stat.title}</h3>
+              <p className="text-2xl font-bold mt-2">{stat.value}</p>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Categories Grid */}
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${categories.length === 0 ? 'pt-8' : ''}`}>
         {categories.map((category) => {
           const spent = category.spent || 0;
           const budget = category.budget || 0;
@@ -138,17 +163,13 @@ export const Categories = () => {
             <Card
               key={category.id}
               hover
-              className="rounded-2xl overflow-hidden shadow-md border-none transition-all"
-              style={{
-                backgroundColor: category.color,
-              }}
+              className="rounded-2xl overflow-hidden shadow-md border-none transition-all transform hover:scale-105"
+              style={{ backgroundColor: category.color }}
             >
               <div className="space-y-4 p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-white text-shadow">
-                      {category.name}
-                    </h3>
+                    <h3 className="font-semibold text-white text-shadow">{category.name}</h3>
                     <p className="text-sm text-white/90 text-shadow">
                       €{(budget || 0).toFixed(2)} Budget
                     </p>
@@ -172,15 +193,11 @@ export const Categories = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm text-white/90 text-shadow">
                     <span>Spent</span>
-                    <span className="font-semibold">
-                      €{(spent || 0).toFixed(2)}
-                    </span>
+                    <span className="font-semibold">€{(spent || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-white/90 text-shadow">
                     <span>Remaining</span>
-                    <span className="font-semibold">
-                      €{(remaining || 0).toFixed(2)}
-                    </span>
+                    <span className="font-semibold">€{(remaining || 0).toFixed(2)}</span>
                   </div>
 
                   <div className="w-full h-3 bg-white/25 rounded-full overflow-hidden">
@@ -188,9 +205,7 @@ export const Categories = () => {
                       className="h-full rounded-full transition-all duration-500"
                       style={{
                         width: `${Math.min(percentage, 100)}%`,
-                        backgroundColor: isOverBudget
-                          ? "#E84855"
-                          : "rgba(255,255,255,0.9)",
+                        backgroundColor: isOverBudget ? "#E84855" : "rgba(255,255,255,0.9)",
                       }}
                     />
                   </div>
@@ -211,16 +226,19 @@ export const Categories = () => {
         })}
       </div>
 
+      {/* Empty Placeholder */}
       {categories.length === 0 && (
-        <Card>
-          <div className="py-12 text-center text-gray-400 dark:text-gray-500">
-            No categories yet. Create your first category to start organizing your budget!
-          </div>
+        <Card className="flex flex-col items-center justify-center py-12 gap-4">
+          <Activity className="w-12 h-12 text-gray-300 dark:text-gray-500 animate-pulse" />
+          <p className="text-gray-400 dark:text-gray-500 text-center">
+            Your budget is empty! Create your first category to start organizing your finances in style.
+          </p>
         </Card>
       )}
 
       <FloatingActionButton onClick={() => handleOpenModal()} />
 
+      {/* Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {

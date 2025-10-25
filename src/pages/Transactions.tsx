@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Filter, Calendar, DollarSign } from 'lucide-react';
+import { Plus, Edit2, Trash2, Filter, Calendar, DollarSign, Camera, Upload } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -16,6 +16,8 @@ export const Transactions = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterCategory, setFilterCategory] = useState('');
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['transactions'],
@@ -62,6 +64,72 @@ export const Transactions = () => {
     },
   });
 
+  // Fonction pour gérer l'upload d'image OCR
+const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Vérifier la taille du fichier
+  if (file.size > 5 * 1024 * 1024) { // 5MB max
+    alert('Image too large. Please select an image under 5MB.');
+    return;
+  }
+
+  setIsOcrLoading(true);
+  
+  try {
+    const base64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.readAsDataURL(file);
+    });
+
+    // Extraire seulement la partie base64 (sans le prefix data:image/...)
+    const base64Data = base64.split(',')[1];
+    
+    console.log('Sending OCR request with image data length:', base64Data.length);
+
+    // Appeler l'API OCR
+    const ocrResult = await transactionsAPI.ocrPreview(base64Data);
+    
+    console.log('OCR Response:', ocrResult);
+
+    // Pré-remplir le formulaire avec les données OCR
+    if (ocrResult.amount) {
+      setValue('amount', parseFloat(ocrResult.amount));
+    }
+    if (ocrResult.currency) {
+      setValue('currency', ocrResult.currency);
+    }
+    if (ocrResult.description || ocrResult.merchant) {
+      setValue('description', ocrResult.description || ocrResult.merchant || '');
+    }
+    if (ocrResult.date) {
+      try {
+        // Convertir la date OCR en jour, mois, année
+        const dateParts = ocrResult.date.split('-');
+        if (dateParts.length === 3) {
+          setValue('day', parseInt(dateParts[0], 10));
+          setValue('month', parseInt(dateParts[1], 10));
+          setValue('year', parseInt(dateParts[2], 10));
+        }
+      } catch (dateError) {
+        console.error('Error parsing OCR date:', dateError);
+      }
+    }
+    
+  } catch (error) {
+    console.error('OCR processing error:', error);
+    alert('Failed to process receipt. Please try again or enter manually.');
+  } finally {
+    setIsOcrLoading(false);
+    // Reset le input file
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }
+};
+
   const handleOpenModal = (transaction?: Transaction) => {
     if (transaction) {
       setEditingTransaction(transaction);
@@ -72,7 +140,7 @@ export const Transactions = () => {
       // Extraire jour, mois, année de la date
       const transactionDate = new Date(transaction.transactionDate);
       setValue('day', transactionDate.getDate());
-      setValue('month', transactionDate.getMonth() + 1); // Les mois commencent à 0
+      setValue('month', transactionDate.getMonth() + 1);
       setValue('year', transactionDate.getFullYear());
       
       setValue('category_id', transaction.category_id || '');
@@ -92,26 +160,26 @@ export const Transactions = () => {
     setIsModalOpen(true);
   };
 
-const onSubmit = (data: any) => {
-  // Formater en DD-MM-YYYY
-  const formattedDate = `${String(data.day).padStart(2, '0')}-${String(data.month).padStart(2, '0')}-${data.year}`;
-  
-  const payload = {
-    amount: parseFloat(data.amount),
-    currency: data.currency,
-    description: data.description,
-    categoryId: data.category_id ? parseInt(data.category_id) : null,
-    date: formattedDate, // "27-10-2025"
+  const onSubmit = (data: any) => {
+    // Formater en DD-MM-YYYY
+    const formattedDate = `${String(data.day).padStart(2, '0')}-${String(data.month).padStart(2, '0')}-${data.year}`;
+    
+    const payload = {
+      amount: parseFloat(data.amount),
+      currency: data.currency,
+      description: data.description,
+      categoryId: data.category_id ? parseInt(data.category_id) : null,
+      date: formattedDate,
+    };
+
+    console.log('Payload envoyé:', payload);
+
+    if (editingTransaction) {
+      updateMutation.mutate({ id: editingTransaction.id, data: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
-
-  console.log('Payload envoyé:', payload);
-
-  if (editingTransaction) {
-    updateMutation.mutate({ id: editingTransaction.id, data: payload });
-  } else {
-    createMutation.mutate(payload);
-  }
-};
 
   const handleDelete = (id: string | number) => {
     if (confirm('Are you sure you want to delete this transaction?')) {
@@ -271,7 +339,7 @@ const onSubmit = (data: any) => {
                       {transaction.description}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                      <span>{new Date(transaction.date).toLocaleDateString()}</span>
+                      <span>{new Date(transaction.transactionDate).toLocaleDateString()}</span>
                       <span>•</span>
                       {category ? (
                         <span
@@ -319,6 +387,16 @@ const onSubmit = (data: any) => {
 
       <FloatingActionButton onClick={() => handleOpenModal()} />
 
+      {/* Input file caché pour l'OCR */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/*"
+        capture="environment"
+        onChange={handleImageUpload}
+      />
+
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
@@ -330,6 +408,28 @@ const onSubmit = (data: any) => {
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="flex gap-2 mb-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isOcrLoading}
+              className="flex items-center gap-2"
+            >
+              {isOcrLoading ? (
+                <>Processing...</>
+              ) : (
+                <>
+                  <Camera className="w-4 h-4" />
+                  Scan Receipt
+                </>
+              )}
+            </Button>
+            <div className="flex-1 text-sm text-gray-500 dark:text-gray-400 flex items-center">
+              Take a photo or upload receipt
+            </div>
+          </div>
+
           <Input
             label="Amount"
             type="number"
@@ -357,6 +457,10 @@ const onSubmit = (data: any) => {
               <option value="USD">USD</option>
               <option value="GBP">GBP</option>
               <option value="CAD">CAD</option>
+              <option value="PHP">PHP (Philippine Peso)</option>
+              <option value="JPY">JPY (Japanese Yen)</option>
+              <option value="AUD">AUD (Australian Dollar)</option>
+              <option value="CHF">CHF (Swiss Franc)</option>
             </select>
             {errors.currency && (
               <p className="mt-1 text-sm text-expense dark:text-expense-dark">{errors.currency.message as string}</p>

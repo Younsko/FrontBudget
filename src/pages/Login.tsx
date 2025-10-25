@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Wallet, Mail, Lock } from 'lucide-react';
+import { Mail, Lock } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { authAPI } from '../services/api';
 import { useAuthStore } from '../hooks/useAuth';
 import { motion } from 'framer-motion';
+import logoGreen from '../assets/Budget_Buddy_green.png';
+
 
 interface LoginForm {
   username: string;
@@ -45,9 +47,13 @@ export const Login = () => {
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-card">
-              <Wallet className="w-8 h-8 text-white" />
-            </div>
+           <div className="inline-flex items-center gap-3 mb-4">
+  <img
+    src={logoGreen}
+    alt="Budget Buddy Logo"
+    className="w-20 h-20 object-contain rounded-2xl shadow-card"
+  />
+</div>
           </div>
           <h1 className="text-3xl font-bold text-primary-dark mb-2">Welcome Back</h1>
           <p className="text-gray-600">Sign in to manage your budget</p>
