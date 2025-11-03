@@ -73,8 +73,11 @@ export interface Stats {
 // Nouveau type pour la réponse OCR
 export interface OcrResponse {
   amount?: number;
+  amountRaw?: string;
   description?: string;
   currency?: string;
   date?: string;
   rawText?: string;
+  receiptImageUrl?: string;
+  categoryName?: string; 
 }

@@ -68,65 +68,90 @@ export const Transactions = () => {
     },
   });
 
-  // ✅ NOUVELLE FONCTION : Gérer l'OCR via URL
-  const handleOcrFromUrl = async () => {
-    if (!imageUrl.trim()) {
-      alert('Please enter an image URL');
-      return;
-    }
+const handleOcrFromUrl = async () => {
+  let validatedUrl = imageUrl;
+  
+  // Validation de l'URL
+  try {
+    validatedUrl = imageUrl.startsWith('http') ? imageUrl : 'https://' + imageUrl;
+    new URL(validatedUrl);
+  } catch {
+    alert('Please enter a valid URL (include http:// or https://)');
+    return;
+  }
 
-    // Validation de l'URL
-    try {
-      new URL(imageUrl);
-    } catch (e) {
-      alert('Please enter a valid URL');
-      return;
-    }
+  setIsOcrLoading(true);
+  
+  try {
+    console.log('Sending OCR request for URL:', validatedUrl);
 
-    setIsOcrLoading(true);
+    const ocrResult = await transactionsAPI.ocrPreview(validatedUrl);
     
-    try {
-      console.log('Sending OCR request for URL:', imageUrl);
+    console.log('OCR Response:', ocrResult);
 
-      // Appeler l'API OCR avec l'URL
-      const ocrResult = await transactionsAPI.ocrPreview(imageUrl);
-      
-      console.log('OCR Response:', ocrResult);
-
-      // Pré-remplir le formulaire avec les données OCR
-      if (ocrResult?.amount) {
-        setValue('amount', parseFloat(ocrResult.amount.toString()));
-      }
-      if (ocrResult?.currency) {
-        setValue('currency', ocrResult.currency);
-      }
-      if (ocrResult?.description) {
-        setValue('description', ocrResult.description);
-      }
-      if (ocrResult?.date) {
-        try {
-          // Convertir la date OCR en jour, mois, année
-          const dateParts = ocrResult.date.split('-');
-          if (dateParts.length === 3) {
-            setValue('day', parseInt(dateParts[0], 10));
-            setValue('month', parseInt(dateParts[1], 10));
-            setValue('year', parseInt(dateParts[2], 10));
-          }
-        } catch (dateError) {
-          console.error('Error parsing OCR date:', dateError);
-        }
-      }
-      
-      // Reset l'URL après utilisation réussie
-      setImageUrl('');
-      
-    } catch (error) {
-      console.error('OCR processing error:', error);
-      alert('Failed to process receipt image. Please check the URL and try again.\n\nMake sure:\n- The URL is publicly accessible\n- The image is clear and readable\n- The image format is supported (JPG, PNG, etc.)');
-    } finally {
-      setIsOcrLoading(false);
+    // Pré-remplir le formulaire avec les données OCR
+    if (ocrResult?.amount !== null && ocrResult?.amount !== undefined) {
+      setValue('amount', parseFloat(ocrResult.amount.toString()));
+    } else {
+      setValue('amount', '');
     }
-  };
+
+    if (ocrResult?.currency) {
+      setValue('currency', ocrResult.currency);
+    } else {
+      setValue('currency', 'EUR');
+    }
+
+    if (ocrResult?.description) {
+      setValue('description', ocrResult.description);
+    }
+
+    if (ocrResult?.date) {
+      try {
+        // La date OCR est au format "DD-MM-YYYY"
+        const dateParts = ocrResult.date.split('-');
+        if (dateParts.length === 3) {
+          const [day, month, year] = dateParts;
+          setValue('day', parseInt(day, 10));
+          setValue('month', parseInt(month, 10));
+          setValue('year', parseInt(year, 10));
+        }
+      } catch (dateError) {
+        console.error('Error parsing OCR date:', dateError);
+      }
+    }
+
+    // ✅ NOUVEAU : Auto-sélectionner la catégorie si l'OCR l'a détectée
+    if (ocrResult?.categoryName) {
+      const matchingCategory = categories.find(
+        cat => cat.name === ocrResult.categoryName
+      );
+      
+      if (matchingCategory) {
+        setValue('category_id', matchingCategory.id);
+        console.log(`✅ Auto-selected category: ${matchingCategory.name} (ID: ${matchingCategory.id})`);
+      } else {
+        console.log(`⚠️ Category "${ocrResult.categoryName}" not found in user's categories`);
+      }
+    }
+    
+    // Feedback à l'utilisateur
+    if (ocrResult?.amount || ocrResult?.description) {
+      console.log('OCR data successfully applied to form');
+    } else {
+      console.log('No data detected from OCR');
+    }
+    
+    // Reset l'URL après utilisation
+    setImageUrl('');
+    
+  } catch (error) {
+    console.error('OCR processing error:', error);
+    alert('Failed to process receipt image. Please check the URL and try again.\n\nMake sure:\n- The URL is publicly accessible\n- The image is clear and readable\n- The image format is supported (JPG, PNG, etc.)');
+  } finally {
+    setIsOcrLoading(false);
+  }
+};
 
   const handleOpenModal = (transaction?: Transaction) => {
     if (transaction) {
@@ -186,9 +211,11 @@ export const Transactions = () => {
     }
   };
 
-  const filteredTransactions = filterCategory
-    ? transactions.filter(t => String(t.category_id) === String(filterCategory))
-    : transactions;
+const filteredTransactions = transactions.filter(t => {
+  if (!filterCategory) return true;
+  return String(t.category_id || '') === String(filterCategory);
+});
+
 
   // Générer les options pour les années
   const currentYear = new Date().getFullYear();

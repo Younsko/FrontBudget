@@ -120,6 +120,17 @@ ocrPreview: async (imageUrl: string): Promise<any> => {
     const response = await api.post('/transactions/ocr-preview', { imageUrl });
     return response.data;
   },
+  
+  ocrPreviewFile: async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const { data } = await api.post('/transactions/ocr-preview-file', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    return data;
+  },
 };
 
 export const categoriesAPI = {

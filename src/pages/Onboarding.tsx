@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Wallet, ArrowRight, X, SkipForward } from 'lucide-react';
 import { Card } from '../components/Card';
@@ -15,16 +15,36 @@ export const Onboarding = () => {
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuthStore();
   const { currency, formatAmount } = useCurrency();
-  const [categories, setCategories] = useState([
-    { id: 1, name: "Food & Dining", color: "#FF6B6B", budget: 0, enabled: true },
-    { id: 2, name: "Transportation", color: "#4ECDC4", budget: 0, enabled: true },
-    { id: 3, name: "Shopping", color: "#45B7D1", budget: 0, enabled: true },
-    { id: 4, name: "Entertainment", color: "#FFA07A", budget: 0, enabled: true },
-    { id: 5, name: "Healthcare", color: "#98D8C8", budget: 0, enabled: true },
-    { id: 6, name: "Housing", color: "#6C5CE7", budget: 0, enabled: true },
-    { id: 7, name: "Utilities", color: "#FDCB6E", budget: 0, enabled: true },
-    { id: 8, name: "Education", color: "#E17055", budget: 0, enabled: true },
-  ]);
+  
+  // ✅ CHANGEMENT 1 : Récupérer les vraies catégories du backend
+  const { data: backendCategories, isLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => categoriesAPI.getAll(),
+    enabled: isAuthenticated,
+  });
+
+  // ✅ CHANGEMENT 2 : État local avec les vraies catégories
+  const [categories, setCategories] = useState<Array<{
+    id: string;
+    name: string;
+    color: string;
+    budget: number;
+    enabled: boolean;
+  }>>([]);
+
+  // ✅ CHANGEMENT 3 : Initialiser les catégories avec les données du backend
+  useEffect(() => {
+    if (backendCategories && backendCategories.length > 0) {
+      const initialCategories = backendCategories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        color: cat.color,
+        budget: cat.budget || 0,
+        enabled: true,
+      }));
+      setCategories(initialCategories);
+    }
+  }, [backendCategories]);
 
   // Rediriger si pas authentifié
   if (!isAuthenticated) {
@@ -33,21 +53,21 @@ export const Onboarding = () => {
   }
 
   const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) => 
-      categoriesAPI.update(String(id), data),
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      categoriesAPI.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 
-  const handleBudgetChange = (id: number, budget: number) => {
+  const handleBudgetChange = (id: string, budget: number) => {
     const newCategories = categories.map(cat => 
       cat.id === id ? { ...cat, budget } : cat
     );
     setCategories(newCategories);
   };
 
-  const toggleCategory = (id: number) => {
+  const toggleCategory = (id: string) => {
     const newCategories = categories.map(cat => 
       cat.id === id ? { ...cat, enabled: !cat.enabled } : cat
     );
@@ -56,30 +76,40 @@ export const Onboarding = () => {
 
   const handleComplete = async () => {
     try {
-      // Mettre à jour seulement les catégories activées avec un budget > 0
+      // ✅ CHANGEMENT 4 : Mettre à jour TOUTES les catégories activées (même budget 0)
       const updates = categories
-        .filter(cat => cat.enabled && cat.budget > 0)
-        .map(cat => 
-          updateCategoryMutation.mutateAsync({
+        .filter(cat => cat.enabled)
+        .map(cat => {
+          return updateCategoryMutation.mutateAsync({
             id: cat.id,
             data: { 
               name: cat.name,
               color: cat.color,
-              monthlyBudget: cat.budget 
+              budget: cat.budget 
             }
-          })
-        );
+          });
+        });
 
       await Promise.all(updates);
       navigate('/dashboard');
     } catch (error) {
       console.error('Error updating categories:', error);
+      alert('Failed to save budgets. Please try again.');
     }
   };
 
   const handleSkip = () => {
     navigate('/dashboard');
   };
+
+  // ✅ Afficher un loader pendant le chargement des catégories
+  if (isLoading || categories.length === 0) {
+    return (
+      <div className="min-h-screen bg-chalk dark:bg-chalk-dark flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const enabledCategories = categories.filter(cat => cat.enabled);
   const totalBudget = enabledCategories.reduce((sum, cat) => sum + cat.budget, 0);
@@ -141,7 +171,7 @@ export const Onboarding = () => {
                     <Input
                       type="number"
                       placeholder="0.00"
-                      value={category.enabled ? category.budget : ''}
+                      value={category.enabled && category.budget > 0 ? category.budget : ''}
                       onChange={(e) => handleBudgetChange(category.id, parseFloat(e.target.value) || 0)}
                       className="pl-8"
                       disabled={!category.enabled}
@@ -151,7 +181,7 @@ export const Onboarding = () => {
               ))}
             </div>
 
-            {enabledCategories.length > 0 && (
+            {enabledCategories.length > 0 && totalBudget > 0 && (
               <Card className="bg-primary/5 dark:bg-primary/10 p-4">
                 <div className="flex justify-between items-center">
                   <span className="font-medium text-primary-dark dark:text-white">Total Monthly Budget:</span>
@@ -184,8 +214,9 @@ export const Onboarding = () => {
               onClick={handleComplete}
               variant="primary"
               className="flex items-center gap-2"
+              disabled={updateCategoryMutation.isPending}
             >
-              Complete Setup
+              {updateCategoryMutation.isPending ? 'Saving...' : 'Complete Setup'}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </div>
@@ -200,7 +231,11 @@ const getCurrencySymbol = (currency: string) => {
     EUR: '€',
     USD: '$',
     GBP: '£',
-    CAD: 'C$'
+    CAD: 'C$',
+    PHP: '₱',
+    JPY: '¥',
+    AUD: 'A$',
+    CHF: 'CHF',
   };
   return symbols[currency] || currency;
 };
