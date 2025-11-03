@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, Filter, Calendar, DollarSign, Camera, Upload } from 'lucide-react';
+import { Plus, Edit2, Trash2, Filter, DollarSign, Camera, Scan } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -17,26 +17,20 @@ export const Transactions = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterCategory, setFilterCategory] = useState('');
   const [isOcrLoading, setIsOcrLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageUrl, setImageUrl] = useState('');
 
-
-  const { data: transactionsResponse, isLoading, error } = useQuery({
+  const { data: transactionsResponse, isLoading } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => transactionsAPI.getAll(),
   });
 
   const transactions = transactionsResponse || [];
 
-  // Fetch categories
-  const { data: categoriesResponse } = useQuery({
+  const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => categoriesAPI.getAll(),
   });
 
-const { data: categories = [] } = useQuery({
-  queryKey: ['categories'],
-  queryFn: () => categoriesAPI.getAll(),
-})
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
   const createMutation = useMutation({
@@ -47,6 +41,7 @@ const { data: categories = [] } = useQuery({
       queryClient.invalidateQueries({ queryKey: ['categories'] });
       setIsModalOpen(false);
       reset();
+      setImageUrl('');
     },
   });
 
@@ -60,6 +55,7 @@ const { data: categories = [] } = useQuery({
       setIsModalOpen(false);
       setEditingTransaction(null);
       reset();
+      setImageUrl('');
     },
   });
 
@@ -72,70 +68,65 @@ const { data: categories = [] } = useQuery({
     },
   });
 
- // Fonction pour gérer l'upload d'image OCR
-const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
+  // ✅ NOUVELLE FONCTION : Gérer l'OCR via URL
+  const handleOcrFromUrl = async () => {
+    if (!imageUrl.trim()) {
+      alert('Please enter an image URL');
+      return;
+    }
 
-  // Vérifier la taille du fichier
-  if (file.size > 5 * 1024 * 1024) {
-    alert('Image too large. Please select an image under 5MB.');
-    return;
-  }
+    // Validation de l'URL
+    try {
+      new URL(imageUrl);
+    } catch (e) {
+      alert('Please enter a valid URL');
+      return;
+    }
 
-  setIsOcrLoading(true);
-  
-  try {
-    const base64 = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target?.result as string);
-      reader.readAsDataURL(file);
-    });
-
-    // Extraire seulement la partie base64
-    const base64Data = base64.split(',')[1];
+    setIsOcrLoading(true);
     
-    console.log('Sending OCR request...');
+    try {
+      console.log('Sending OCR request for URL:', imageUrl);
 
-    // Appeler l'API OCR - CORRECTION: transactionsAPI.ocrPreview retourne déjà response.data
-    const ocrResult = await transactionsAPI.ocrPreview(base64Data);
-    
-    console.log('OCR Response:', ocrResult);
+      // Appeler l'API OCR avec l'URL
+      const ocrResult = await transactionsAPI.ocrPreview(imageUrl);
+      
+      console.log('OCR Response:', ocrResult);
 
-    // Pré-remplir le formulaire avec les données OCR
-    if (ocrResult?.amount) {
-      setValue('amount', parseFloat(ocrResult.amount.toString()));
-    }
-    if (ocrResult?.currency) {
-      setValue('currency', ocrResult.currency);
-    }
-    if (ocrResult?.description) {
-      setValue('description', ocrResult.description);
-    }
-    if (ocrResult?.date) {
-      try {
-        // Convertir la date OCR en jour, mois, année
-        const dateParts = ocrResult.date.split('-');
-        if (dateParts.length === 3) {
-          setValue('day', parseInt(dateParts[0], 10));
-          setValue('month', parseInt(dateParts[1], 10));
-          setValue('year', parseInt(dateParts[2], 10));
-        }
-      } catch (dateError) {
-        console.error('Error parsing OCR date:', dateError);
+      // Pré-remplir le formulaire avec les données OCR
+      if (ocrResult?.amount) {
+        setValue('amount', parseFloat(ocrResult.amount.toString()));
       }
+      if (ocrResult?.currency) {
+        setValue('currency', ocrResult.currency);
+      }
+      if (ocrResult?.description) {
+        setValue('description', ocrResult.description);
+      }
+      if (ocrResult?.date) {
+        try {
+          // Convertir la date OCR en jour, mois, année
+          const dateParts = ocrResult.date.split('-');
+          if (dateParts.length === 3) {
+            setValue('day', parseInt(dateParts[0], 10));
+            setValue('month', parseInt(dateParts[1], 10));
+            setValue('year', parseInt(dateParts[2], 10));
+          }
+        } catch (dateError) {
+          console.error('Error parsing OCR date:', dateError);
+        }
+      }
+      
+      // Reset l'URL après utilisation réussie
+      setImageUrl('');
+      
+    } catch (error) {
+      console.error('OCR processing error:', error);
+      alert('Failed to process receipt image. Please check the URL and try again.\n\nMake sure:\n- The URL is publicly accessible\n- The image is clear and readable\n- The image format is supported (JPG, PNG, etc.)');
+    } finally {
+      setIsOcrLoading(false);
     }
-    
-  } catch (error) {
-    console.error('OCR processing error:', error);
-    alert('Failed to process receipt. Please try again or enter manually.');
-  } finally {
-    setIsOcrLoading(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }
-};
+  };
 
   const handleOpenModal = (transaction?: Transaction) => {
     if (transaction) {
@@ -144,12 +135,12 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
       setValue('currency', transaction.currency);
       setValue('description', transaction.description);
       
-const dateParts = transaction.transactionDate.split('-');
-if (dateParts.length === 3) {
-  setValue('day', parseInt(dateParts[2], 10));
-  setValue('month', parseInt(dateParts[1], 10));
-  setValue('year', parseInt(dateParts[0], 10)); 
-}
+      const dateParts = transaction.transactionDate.split('-');
+      if (dateParts.length === 3) {
+        setValue('day', parseInt(dateParts[2], 10));
+        setValue('month', parseInt(dateParts[1], 10));
+        setValue('year', parseInt(dateParts[0], 10)); 
+      }
       
       setValue('category_id', transaction.category_id || '');
     } else {
@@ -164,12 +155,12 @@ if (dateParts.length === 3) {
         year: today.getFullYear(),
         category_id: '',
       });
+      setImageUrl('');
     }
     setIsModalOpen(true);
   };
 
   const onSubmit = (data: any) => {
-    // Formater en DD-MM-YYYY pour le backend
     const formattedDate = `${String(data.day).padStart(2, '0')}-${String(data.month).padStart(2, '0')}-${data.year}`;
     
     const payload = {
@@ -217,7 +208,6 @@ if (dateParts.length === 3) {
     { value: 12, label: 'December' }
   ];
 
-  // Afficher un indicateur de chargement
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -243,7 +233,6 @@ if (dateParts.length === 3) {
           New Transaction
         </Button>
       </div>
-
 
       <Card>
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -284,7 +273,6 @@ if (dateParts.length === 3) {
                   ? categories.find(c => String(c.id) === String(transaction.category_id))
                   : null;
                 
-                
                 return (
                   <tr
                     key={transaction.id}
@@ -299,25 +287,25 @@ if (dateParts.length === 3) {
                       {transaction.description}
                     </td>
                     <td className="py-4 px-4">
-                    {category ? (
-                    <span
-                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
-                      style={{ backgroundColor: category.color + '20', color: category.color }}
-                    >
-                    <div
-                   className="w-2 h-2 rounded-full"
-      style={{ backgroundColor: category.color }}
-    />
-    {category.name}
-  </span>
-) : (
-  <span
-    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-  >
-    <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500" />
-    Uncategorized
-  </span>
-)}
+                      {category ? (
+                        <span
+                          className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                          style={{ backgroundColor: category.color + '20', color: category.color }}
+                        >
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          {category.name}
+                        </span>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                        >
+                          <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500" />
+                          Uncategorized
+                        </span>
+                      )}
                     </td>
                     <td className="py-4 px-4 text-right font-semibold text-expense dark:text-expense-dark">
                       {(transaction.amount || 0).toFixed(2)}
@@ -417,47 +405,68 @@ if (dateParts.length === 3) {
 
       <FloatingActionButton onClick={() => handleOpenModal()} />
 
-      {/* Input file caché pour l'OCR */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        className="hidden"
-        accept="image/*"
-        capture="environment"
-        onChange={handleImageUpload}
-      />
-
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setEditingTransaction(null);
           reset();
+          setImageUrl('');
         }}
         title={editingTransaction ? 'Edit Transaction' : 'New Transaction'}
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="flex gap-2 mb-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isOcrLoading}
-              className="flex items-center gap-2"
-            >
-              {isOcrLoading ? (
-                <>Processing...</>
-              ) : (
-                <>
-                  <Camera className="w-4 h-4" />
-                  Scan Receipt
-                </>
-              )}
-            </Button>
-            <div className="flex-1 text-sm text-gray-500 dark:text-gray-400 flex items-center">
-              Take a photo or upload receipt
+          {/* ✅ NOUVELLE SECTION : OCR par URL */}
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
+              <Camera className="w-4 h-4" />
+              Scan Receipt from URL
+            </h3>
+            
+            <div className="flex gap-2 mb-2">
+              <div className="flex-1">
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://example.com/receipt.jpg"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-blue-200 dark:border-blue-700 bg-white dark:bg-blue-900/30
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                    text-primary-dark dark:text-white placeholder-blue-400 dark:placeholder-blue-300"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleOcrFromUrl}
+                disabled={isOcrLoading || !imageUrl.trim()}
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
+                {isOcrLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Scan className="w-4 h-4" />
+                )}
+                Scan
+              </Button>
             </div>
+            
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              💡 Enter a public image URL to automatically extract transaction details
+            </p>
+            
+            {/* Exemples d'URL supportées */}
+            <details className="mt-2">
+              <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer">
+                Supported URL examples
+              </summary>
+              <div className="mt-1 text-xs text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800/50 p-2 rounded">
+                <div>• https://s3-media0.fl.yelpcdn.com/bphoto/...jpg</div>
+                <div>• https://i.imgur.com/...jpg</div>
+                <div>• https://example.com/receipts/image.png</div>
+              </div>
+            </details>
           </div>
 
           <Input
@@ -610,6 +619,7 @@ if (dateParts.length === 3) {
                 setIsModalOpen(false);
                 setEditingTransaction(null);
                 reset();
+                setImageUrl('');
               }}
             >
               Cancel
