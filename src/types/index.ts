@@ -6,6 +6,10 @@ export interface User {
   currency: string;
   avatar?: string;
   created_at: string;
+  profilePhotoUrl?: string;
+  preferredCurrency?: string;
+  totalCategories?: number;
+  totalTransactions?: number;
 }
 
 export interface Transaction {
@@ -18,9 +22,11 @@ export interface Transaction {
   category_id: string | null;
   user_id: string;
   receipt_url?: string;
+  receiptImageUrl?: string;
   created_at: string;
+  categoryName?: string;
+  categoryColor?: string;
 }
-
 
 export interface Category {
   id: string;
@@ -29,6 +35,10 @@ export interface Category {
   budget: number;
   user_id: string;
   spent?: number;
+  monthlyBudget?: number;
+  spentThisMonth?: number;
+  remainingBudget?: number;
+  transactionCount?: number;
 }
 
 export interface Stats {
@@ -37,4 +47,34 @@ export interface Stats {
   transaction_count: number;
   budget_remaining: number;
   percentage_used: number;
+  totalSpentThisMonth?: number;
+  totalBudgetThisMonth?: number;
+  totalTransactions?: number;
+  byCategory?: Array<{
+    categoryName: string;
+    color: string;
+    spent: number;
+    budget: number;
+    percentage: number;
+    transactionCount: number;
+  }>;
+  byCurrency?: Array<{
+    currency: string;
+    amount: number;
+    convertedToPreferred: number;
+  }>;
+  dailySpending?: Array<{
+    date: string;
+    amount: number;
+    transactionCount: number;
+  }>;
+}
+
+// Nouveau type pour la réponse OCR
+export interface OcrResponse {
+  amount?: number;
+  description?: string;
+  currency?: string;
+  date?: string;
+  rawText?: string;
 }

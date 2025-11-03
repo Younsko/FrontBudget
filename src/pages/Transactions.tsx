@@ -19,16 +19,24 @@ export const Transactions = () => {
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: transactions = [] } = useQuery({
+
+  const { data: transactionsResponse, isLoading, error } = useQuery({
     queryKey: ['transactions'],
-    queryFn: transactionsAPI.getAll,
+    queryFn: () => transactionsAPI.getAll(),
   });
 
-  const { data: categories = [] } = useQuery({
+  const transactions = transactionsResponse || [];
+
+  // Fetch categories
+  const { data: categoriesResponse } = useQuery({
     queryKey: ['categories'],
-    queryFn: categoriesAPI.getAll,
+    queryFn: () => categoriesAPI.getAll(),
   });
 
+const { data: categories = [] } = useQuery({
+  queryKey: ['categories'],
+  queryFn: () => categoriesAPI.getAll(),
+})
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
   const createMutation = useMutation({
@@ -64,13 +72,13 @@ export const Transactions = () => {
     },
   });
 
-  // Fonction pour gérer l'upload d'image OCR
+ // Fonction pour gérer l'upload d'image OCR
 const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
   const file = event.target.files?.[0];
   if (!file) return;
 
   // Vérifier la taille du fichier
-  if (file.size > 5 * 1024 * 1024) { // 5MB max
+  if (file.size > 5 * 1024 * 1024) {
     alert('Image too large. Please select an image under 5MB.');
     return;
   }
@@ -84,27 +92,27 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
       reader.readAsDataURL(file);
     });
 
-    // Extraire seulement la partie base64 (sans le prefix data:image/...)
+    // Extraire seulement la partie base64
     const base64Data = base64.split(',')[1];
     
-    console.log('Sending OCR request with image data length:', base64Data.length);
+    console.log('Sending OCR request...');
 
-    // Appeler l'API OCR
+    // Appeler l'API OCR - CORRECTION: transactionsAPI.ocrPreview retourne déjà response.data
     const ocrResult = await transactionsAPI.ocrPreview(base64Data);
     
     console.log('OCR Response:', ocrResult);
 
     // Pré-remplir le formulaire avec les données OCR
-    if (ocrResult.amount) {
-      setValue('amount', parseFloat(ocrResult.amount));
+    if (ocrResult?.amount) {
+      setValue('amount', parseFloat(ocrResult.amount.toString()));
     }
-    if (ocrResult.currency) {
+    if (ocrResult?.currency) {
       setValue('currency', ocrResult.currency);
     }
-    if (ocrResult.description || ocrResult.merchant) {
-      setValue('description', ocrResult.description || ocrResult.merchant || '');
+    if (ocrResult?.description) {
+      setValue('description', ocrResult.description);
     }
-    if (ocrResult.date) {
+    if (ocrResult?.date) {
       try {
         // Convertir la date OCR en jour, mois, année
         const dateParts = ocrResult.date.split('-');
@@ -123,7 +131,6 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
     alert('Failed to process receipt. Please try again or enter manually.');
   } finally {
     setIsOcrLoading(false);
-    // Reset le input file
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -137,11 +144,12 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
       setValue('currency', transaction.currency);
       setValue('description', transaction.description);
       
-      // Extraire jour, mois, année de la date
-      const transactionDate = new Date(transaction.transactionDate);
-      setValue('day', transactionDate.getDate());
-      setValue('month', transactionDate.getMonth() + 1);
-      setValue('year', transactionDate.getFullYear());
+const dateParts = transaction.transactionDate.split('-');
+if (dateParts.length === 3) {
+  setValue('day', parseInt(dateParts[2], 10));
+  setValue('month', parseInt(dateParts[1], 10));
+  setValue('year', parseInt(dateParts[0], 10)); 
+}
       
       setValue('category_id', transaction.category_id || '');
     } else {
@@ -161,7 +169,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
   };
 
   const onSubmit = (data: any) => {
-    // Formater en DD-MM-YYYY
+    // Formater en DD-MM-YYYY pour le backend
     const formattedDate = `${String(data.day).padStart(2, '0')}-${String(data.month).padStart(2, '0')}-${data.year}`;
     
     const payload = {
@@ -172,7 +180,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
       date: formattedDate,
     };
 
-    console.log('Payload envoyé:', payload);
+    console.log('Submitting transaction:', payload);
 
     if (editingTransaction) {
       updateMutation.mutate({ id: editingTransaction.id, data: payload });
@@ -191,7 +199,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
     ? transactions.filter(t => String(t.category_id) === String(filterCategory))
     : transactions;
 
-  // Générer les options pour les années (5 ans dans le passé, 5 ans dans le futur)
+  // Générer les options pour les années
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
   const months = [
@@ -208,6 +216,15 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
     { value: 11, label: 'November' },
     { value: 12, label: 'December' }
   ];
+
+  // Afficher un indicateur de chargement
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -226,6 +243,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
           New Transaction
         </Button>
       </div>
+
 
       <Card>
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -265,6 +283,8 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
                 const category = transaction.category_id 
                   ? categories.find(c => String(c.id) === String(transaction.category_id))
                   : null;
+                
+                
                 return (
                   <tr
                     key={transaction.id}
@@ -273,26 +293,31 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
                     <td className="py-4 px-4 text-gray-600 dark:text-gray-400">
                       {transaction.transactionDate
                         ? new Date(transaction.transactionDate.split('T')[0]).toLocaleDateString()
-                        : ''}
+                        : 'No date'}
                     </td>
                     <td className="py-4 px-4 font-medium text-primary-dark dark:text-white">
                       {transaction.description}
                     </td>
                     <td className="py-4 px-4">
-                      {category ? (
-                        <span
-                          className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
-                          style={{ backgroundColor: category.color + '20', color: category.color }}
-                        >
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: category.color }}
-                          />
-                          {category.name}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-500 text-sm">Uncategorized</span>
-                      )}
+                    {category ? (
+                    <span
+                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                      style={{ backgroundColor: category.color + '20', color: category.color }}
+                    >
+                    <div
+                   className="w-2 h-2 rounded-full"
+      style={{ backgroundColor: category.color }}
+    />
+    {category.name}
+  </span>
+) : (
+  <span
+    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+  >
+    <div className="w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500" />
+    Uncategorized
+  </span>
+)}
                     </td>
                     <td className="py-4 px-4 text-right font-semibold text-expense dark:text-expense-dark">
                       {(transaction.amount || 0).toFixed(2)}
@@ -323,6 +348,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
           </table>
         </div>
 
+        {/* Mobile view */}
         <div className="lg:hidden space-y-3">
           {filteredTransactions.map((transaction) => {
             const category = transaction.category_id
@@ -339,7 +365,11 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
                       {transaction.description}
                     </p>
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                      <span>{new Date(transaction.transactionDate).toLocaleDateString()}</span>
+                      <span>
+                        {transaction.transactionDate
+                          ? new Date(transaction.transactionDate.split('T')[0]).toLocaleDateString()
+                          : 'No date'}
+                      </span>
                       <span>•</span>
                       {category ? (
                         <span
@@ -380,7 +410,7 @@ const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => 
 
         {filteredTransactions.length === 0 && (
           <div className="py-12 text-center text-gray-400 dark:text-gray-500">
-            No transactions found. Add your first transaction to get started!
+            {transactions.length === 0 ? 'No transactions found. Add your first transaction to get started!' : 'No transactions match the selected filter.'}
           </div>
         )}
       </Card>

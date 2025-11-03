@@ -117,8 +117,8 @@ export const transactionsAPI = {
   },
   
   ocrPreview: async (imageData: string): Promise<any> => {
-  const response = await api.post('/transactions/ocr-preview', { image: imageData });
-  return response.data;
+    const response = await api.post('/transactions/ocr-preview', { image: imageData });
+    return response;
 },
 };
 
