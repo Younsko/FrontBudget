@@ -26,6 +26,15 @@ const PRESET_COLORS = [
   "#95E1D3",
 ];
 
+const isLightColor = (color: string): boolean => {
+  const hex = color.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6;
+};
+
 export const Categories = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -169,51 +178,51 @@ export const Categories = () => {
               <div className="space-y-4 p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-white text-shadow">{category.name}</h3>
-                    <p className="text-sm text-white/90 text-shadow">
+                    <h3 className="font-semibold drop-shadow-lg" style={{ color: isLightColor(category.color) ? '#023020' : '#FFFFFF' }}>{category.name}</h3>
+                    <p className="text-sm drop-shadow-lg" style={{ color: isLightColor(category.color) ? 'rgba(2,48,32,0.8)' : 'rgba(255,255,255,0.9)' }}>
                       €{(budget || 0).toFixed(2)} Budget
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenModal(category)}
-                      className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
+                      className="p-2 bg-black/10 backdrop-blur-sm border border-white/30 rounded-lg hover:bg-black/20 transition-colors"
                     >
-                      <Edit2 className="w-4 h-4 text-white" />
+                      <Edit2 className="w-4 h-4" style={{ color: isLightColor(category.color) ? '#023020' : '#FFFFFF' }} />
                     </button>
                     <button
                       onClick={() => handleDelete(category.id)}
-                      className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
+                      className="p-2 bg-black/10 backdrop-blur-sm border border-white/30 rounded-lg hover:bg-black/20 transition-colors"
                     >
-                      <Trash2 className="w-4 h-4 text-white" />
+                      <Trash2 className="w-4 h-4" style={{ color: isLightColor(category.color) ? '#023020' : '#FFFFFF' }} />
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm text-white/90 text-shadow">
+                  <div className="flex items-center justify-between text-sm drop-shadow-lg" style={{ color: isLightColor(category.color) ? 'rgba(2,48,32,0.8)' : 'rgba(255,255,255,0.9)' }}>
                     <span>Spent</span>
                     <span className="font-semibold">€{(spent || 0).toFixed(2)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm text-white/90 text-shadow">
+                  <div className="flex items-center justify-between text-sm drop-shadow-lg" style={{ color: isLightColor(category.color) ? 'rgba(2,48,32,0.8)' : 'rgba(255,255,255,0.9)' }}>
                     <span>Remaining</span>
                     <span className="font-semibold">€{(remaining || 0).toFixed(2)}</span>
                   </div>
 
-                  <div className="w-full h-3 bg-white/25 rounded-full overflow-hidden">
+                  <div className="w-full h-3 bg-black/15 backdrop-blur-sm rounded-full overflow-hidden shadow-inner">
                     <div
-                      className="h-full rounded-full transition-all duration-500"
+                      className="h-full rounded-full transition-all duration-500 shadow-sm"
                       style={{
                         width: `${Math.min(percentage, 100)}%`,
-                        backgroundColor: isOverBudget ? "#E84855" : "rgba(255,255,255,0.9)",
+                        backgroundColor: isOverBudget ? "#E84855" : (isLightColor(category.color) ? 'rgba(2,48,32,0.7)' : 'rgba(255,255,255,0.85)'),
                       }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-white/80 text-shadow">
+                  <div className="flex items-center justify-between text-xs drop-shadow-lg" style={{ color: isLightColor(category.color) ? 'rgba(2,48,32,0.7)' : 'rgba(255,255,255,0.8)' }}>
                     <span>{percentage.toFixed(0)}% used</span>
                     {isOverBudget && (
-                      <span className="flex items-center gap-1 text-white/80 text-shadow">
+                      <span className="flex items-center gap-1">
                         <TrendingUp className="w-3 h-3" />
                         Over budget
                       </span>

@@ -23,7 +23,11 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       EUR: 1,
       USD: 1.08,
       GBP: 0.85,
-      CAD: 1.46
+      CAD: 1.46,
+      PHP: 61.5,
+      CHF: 0.95,
+      JPY: 161.5,
+      AUD: 1.65
     };
     
     // Conversion: montant * (taux cible / taux source)
@@ -63,7 +67,11 @@ const getCurrencySymbol = (currency: string) => {
     EUR: '€',
     USD: '$',
     GBP: '£',
-    CAD: 'C$'
+    CAD: 'C$',
+    PHP: '₱',
+    CHF: 'CHF',
+    JPY: '¥',
+    AUD: 'A$'
   };
   return symbols[currency] || currency;
 };

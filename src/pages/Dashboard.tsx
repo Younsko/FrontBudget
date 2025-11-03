@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { TrendingUp, DollarSign, Activity, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { TrendingUp, DollarSign, Activity, ArrowRight, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { transactionsAPI, categoriesAPI, userAPI } from '../services/api';
-import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar } from 'recharts';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useCurrency } from '../hooks/useCurrency';
@@ -58,6 +58,10 @@ export const Dashboard = () => {
     setSelectedDate(newDate);
   };
 
+  const isCurrentMonth = selectedDate.getMonth() === new Date().getMonth() &&
+                          selectedDate.getFullYear() === new Date().getFullYear();
+  const isHistoricalMonth = selectedDate < new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
   // Données pour le camembert
   const categoryData = categories
     .map(cat => {
@@ -77,13 +81,21 @@ export const Dashboard = () => {
     categoryData.push({ name: 'Uncategorized', value: uncategorizedSpent, color: '#9CA3AF' });
   }
 
-  // Données pour les 7 derniers jours
-  const dailyData = filteredTransactions
-    .slice(-7)
-    .map(t => ({
-      date: new Date(t.date || t.transactionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      amount: convertAmount(t.amount || 0, t.currency),
-    }));
+  // Données pour les dépenses quotidiennes du mois
+  const dailySpendingMap = new Map<string, number>();
+  filteredTransactions.forEach(t => {
+    const date = new Date(t.date || t.transactionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const current = dailySpendingMap.get(date) || 0;
+    dailySpendingMap.set(date, current + convertAmount(t.amount || 0, t.currency));
+  });
+
+  const dailyData = Array.from(dailySpendingMap.entries())
+    .map(([date, amount]) => ({ date, amount }))
+    .sort((a, b) => {
+      const dateA = new Date(a.date + ', ' + selectedDate.getFullYear());
+      const dateB = new Date(b.date + ', ' + selectedDate.getFullYear());
+      return dateA.getTime() - dateB.getTime();
+    });
 
   const recentTransactions = filteredTransactions.slice(0, 5);
 
@@ -96,18 +108,33 @@ export const Dashboard = () => {
           <h1 className="text-3xl font-bold text-primary-dark dark:text-primary-light mb-1">
             Hello {firstName} 👋
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">Welcome to your dashboard</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            {isHistoricalMonth ? 'Viewing historical data' : 'Welcome to your dashboard'}
+          </p>
         </div>
-        <div className="flex items-center gap-4 bg-white dark:bg-secondary-dark rounded-lg p-2 shadow-soft dark:shadow-soft-dark">
-          <button onClick={() => navigateMonth('prev')} className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg" title="Previous month">
-            <ChevronLeft className="w-5 h-5 text-primary-dark dark:text-primary-light" />
-          </button>
-          <span className="font-semibold text-primary-dark dark:text-white min-w-[140px] text-center">
-            {currentMonth}
-          </span>
-          <button onClick={() => navigateMonth('next')} className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg" title="Next month">
-            <ChevronRight className="w-5 h-5 text-primary-dark dark:text-primary-light" />
-          </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          {isHistoricalMonth && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-info/10 dark:bg-info-dark/10 border border-info/20 dark:border-info-dark/20 rounded-lg">
+              <Calendar className="w-4 h-4 text-info dark:text-info-dark" />
+              <span className="text-sm text-info dark:text-info-dark font-medium">Historical View</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 bg-white dark:bg-secondary-dark rounded-lg p-2 shadow-soft dark:shadow-soft-dark">
+            <button onClick={() => navigateMonth('prev')} className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg" title="Previous month">
+              <ChevronLeft className="w-5 h-5 text-primary-dark dark:text-primary-light" />
+            </button>
+            <span className="font-semibold text-primary-dark dark:text-white min-w-[140px] text-center">
+              {currentMonth}
+            </span>
+            <button
+              onClick={() => navigateMonth('next')}
+              className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Next month"
+              disabled={!isHistoricalMonth && !isCurrentMonth}
+            >
+              <ChevronRight className="w-5 h-5 text-primary-dark dark:text-primary-light" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -175,44 +202,77 @@ export const Dashboard = () => {
       {/* Graphiques */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <h2 className="text-lg font-semibold text-primary-dark dark:text-white mb-4">Spending by Category - {currentMonth}</h2>
+          <h2 className="text-lg font-semibold text-primary-dark dark:text-white mb-4">Spending by Category</h2>
           {categoryData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
                   data={categoryData}
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
+                  outerRadius={90}
+                  innerRadius={50}
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
                 >
                   {categoryData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                 </Pie>
-                <Tooltip formatter={(value: number) => [formatAmount(value), 'Amount']} />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-white dark:bg-secondary-dark p-3 rounded-lg shadow-card dark:shadow-card-dark border border-gray-200 dark:border-gray-700">
+                          <p className="font-medium text-primary-dark dark:text-white">{payload[0].name}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{formatAmount(payload[0].value as number)}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500">
+            <div className="h-[300px] flex items-center justify-center text-gray-400 dark:text-gray-500">
               No spending data for {currentMonth}
             </div>
           )}
         </Card>
 
         <Card>
-          <h2 className="text-lg font-semibold text-primary-dark dark:text-white mb-4">Recent Spending - {currentMonth}</h2>
+          <h2 className="text-lg font-semibold text-primary-dark dark:text-white mb-4">Daily Spending Trend</h2>
           {dailyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={dailyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={formatAmount} />
-                <Tooltip formatter={(value: number) => [formatAmount(value), 'Amount']} />
-                <Line type="monotone" dataKey="amount" stroke="#17B169" strokeWidth={2} />
-              </LineChart>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dailyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-gray-200 dark:text-gray-700" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: 'currentColor' }}
+                  className="text-gray-600 dark:text-gray-400"
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: 'currentColor' }}
+                  className="text-gray-600 dark:text-gray-400"
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-white dark:bg-secondary-dark p-3 rounded-lg shadow-card dark:shadow-card-dark border border-gray-200 dark:border-gray-700">
+                          <p className="font-medium text-primary-dark dark:text-white">{payload[0].payload.date}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{formatAmount(payload[0].value as number)}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="amount" fill="#17B169" radius={[8, 8, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-64 flex items-center justify-center text-gray-400 dark:text-gray-500">
+            <div className="h-[300px] flex items-center justify-center text-gray-400 dark:text-gray-500">
               No transaction data for {currentMonth}
             </div>
           )}

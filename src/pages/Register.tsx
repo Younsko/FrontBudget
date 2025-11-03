@@ -130,6 +130,10 @@ export const Register = () => {
                   <option value="USD">USD - US Dollar</option>
                   <option value="GBP">GBP - British Pound</option>
                   <option value="CAD">CAD - Canadian Dollar</option>
+                  <option value="PHP">PHP - Philippine Peso</option>
+                  <option value="JPY">JPY - Japanese Yen</option>
+                  <option value="AUD">AUD - Australian Dollar</option>
+                  <option value="CHF">CHF - Swiss Franc</option>
                 </select>
               </div>
               {errors.currency && (

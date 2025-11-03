@@ -16,7 +16,7 @@ export const Sidebar = ({ onLogout }: SidebarProps) => {
   ];
 
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-gray-100 z-30">
+    <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white dark:bg-secondary-dark border-r border-gray-100 dark:border-gray-700 z-30">
       {/* --- Logo above --- */}
       <div className="flex items-center gap-3 px-6 py-8">
         <img
@@ -39,7 +39,7 @@ export const Sidebar = ({ onLogout }: SidebarProps) => {
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                 isActive
                   ? 'bg-primary text-white shadow-soft'
-                  : 'text-gray-600 hover:bg-secondary hover:text-primary-dark'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-secondary dark:hover:bg-secondary-dark-lighter hover:text-primary-dark dark:hover:text-primary-light'
               }`
             }
           >
@@ -53,7 +53,7 @@ export const Sidebar = ({ onLogout }: SidebarProps) => {
       <div className="p-4">
         <button
           onClick={onLogout}
-          className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-expense hover:bg-expense/10 transition-all duration-200"
+          className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-expense dark:text-expense-dark hover:bg-expense/10 dark:hover:bg-expense-dark/10 transition-all duration-200"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Logout</span>

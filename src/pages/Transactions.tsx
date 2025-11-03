@@ -482,18 +482,6 @@ const filteredTransactions = transactions.filter(t => {
             <p className="text-xs text-blue-600 dark:text-blue-400">
               💡 Enter a public image URL to automatically extract transaction details
             </p>
-            
-            {/* Exemples d'URL supportées */}
-            <details className="mt-2">
-              <summary className="text-xs text-blue-600 dark:text-blue-400 cursor-pointer">
-                Supported URL examples
-              </summary>
-              <div className="mt-1 text-xs text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800/50 p-2 rounded">
-                <div>• https://s3-media0.fl.yelpcdn.com/bphoto/...jpg</div>
-                <div>• https://i.imgur.com/...jpg</div>
-                <div>• https://example.com/receipts/image.png</div>
-              </div>
-            </details>
           </div>
 
           <Input
@@ -532,6 +520,13 @@ const filteredTransactions = transactions.filter(t => {
               <p className="mt-1 text-sm text-expense dark:text-expense-dark">{errors.currency.message as string}</p>
             )}
           </div>
+
+          <Input
+            label="Description"
+            placeholder="Coffee at Starbucks"
+            {...register('description', { required: 'Description is required' })}
+            error={errors.description?.message as string}
+          />
 
           {/* Date inputs séparés */}
           <div>
@@ -612,13 +607,6 @@ const filteredTransactions = transactions.filter(t => {
               </div>
             </div>
           </div>
-
-          <Input
-            label="Description"
-            placeholder="Coffee at Starbucks"
-            {...register('description', { required: 'Description is required' })}
-            error={errors.description?.message as string}
-          />
 
           <div>
             <label className="block text-sm font-medium text-primary-dark dark:text-primary-light mb-2">
