@@ -12,7 +12,8 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { useAuthStore } from '../hooks/useAuth';
 import logoGreen from '../assets/Budget_Buddy_green.png';
-import logoWhite from '../assets/Budget_Buddy_White.png'
+import logoWhite from '../assets/Budget_Buddy_White.png';
+import BackgroundImage from '../assets/Background_Landing.png'; // Importation de l'image de fond
 
 export const Landing = () => {
   const { isAuthenticated } = useAuthStore();
@@ -87,7 +88,10 @@ export const Landing = () => {
             {!isAuthenticated ? (
               <div className="flex items-center gap-4">
                 <Link to="/login">
-                  <Button variant="ghost" className="hidden sm:flex">
+                  <Button
+                    variant="ghost"
+                    className="hidden sm:flex group text-primary DEFAULT dark:text-white hover:text-primary-light dark:hover:text-primary"
+                  >
                     Sign In
                   </Button>
                 </Link>
@@ -104,11 +108,23 @@ export const Landing = () => {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="px-4 py-16 lg:py-24">
-        <div className="max-w-7xl mx-auto text-center">
+      {/* Hero Section with background image and white glow effect on the edges */}
+      <section className="relative px-4 py-16 lg:py-24">
+        {/* Background image with glow effect on edges */}
+        <div className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${BackgroundImage})`,
+            filter: 'brightness(0.8)', // Slightly dim the background image to make text pop
+            backgroundSize: 'cover',
+          }} />
+        <div className="absolute inset-0 bg-white opacity-20"></div> {/* Optional white overlay for better text contrast */}
+
+        {/* Glow effect on the edges */}
+        <div className="absolute inset-0  opacity-60 rounded-lg box-border" style={{ boxShadow: "0px 0px 60px rgba(255, 255, 255, 0.8)" }}></div>
+
+        <div className="relative max-w-7xl mx-auto text-center z-10">
           <motion.h1
-            className="text-4xl lg:text-6xl font-bold text-primary-dark dark:text-primary-light mb-6"
+            className="text-4xl lg:text-6xl font-bold text-white mb-6 border-b-4 border-white inline-block"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -116,7 +132,7 @@ export const Landing = () => {
             <span className="text-primary dark:text-primary-light"> Finances</span>
           </motion.h1>
           <motion.p
-            className="text-xl lg:text-2xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto"
+            className="text-xl lg:text-2xl text-white mb-8 max-w-3xl mx-auto"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -136,7 +152,7 @@ export const Landing = () => {
                     Start For Free <ArrowRight className="w-5 h-5" />
                   </Button>
                 </Link>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                <p className="text-white text-sm">
                   No credit card • Forever free
                 </p>
               </>
@@ -152,7 +168,7 @@ export const Landing = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="px-4 py-16">
+      <section id="features" className="px-4 py-16 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary-dark/10 dark:to-primary-dark/5">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold text-primary-dark dark:text-primary-light mb-4">
@@ -176,6 +192,7 @@ export const Landing = () => {
           </div>
         </div>
       </section>
+
 
       {/* OCR Section */}
       <section className="px-4 py-16 bg-primary dark:bg-primary-dark text-white">

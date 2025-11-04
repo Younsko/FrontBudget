@@ -9,7 +9,6 @@ import { useAuthStore } from '../hooks/useAuth';
 import { motion } from 'framer-motion';
 import logoGreen from '../assets/Budget_Buddy_green.png';
 
-
 interface LoginForm {
   username: string;
   password: string;
@@ -38,7 +37,7 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-chalk">
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-chalk dark:bg-chalk-dark transition-colors duration-300">
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -47,19 +46,19 @@ export const Login = () => {
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-           <div className="inline-flex items-center gap-3 mb-4">
-  <img
-    src={logoGreen}
-    alt="Budget Buddy Logo"
-    className="w-20 h-20 object-contain rounded-2xl shadow-card"
-  />
-</div>
+             <Link to="/">
+            <img
+              src={logoGreen}
+              alt="Budget Buddy Logo"
+              className="w-20 h-20 object-contain rounded-2xl shadow-card dark:shadow-card-dark"
+            />
+            </Link>
           </div>
-          <h1 className="text-3xl font-bold text-primary-dark mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Sign in to manage your budget</p>
+          <h1 className="text-3xl font-bold text-primary-dark dark:text-chalk mb-2">Welcome Back</h1>
+          <p className="text-gray-600 dark:text-gray-300">Sign in to manage your budget</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-card p-8">
+        <div className="bg-white dark:bg-secondary-dark rounded-2xl shadow-card dark:shadow-card-dark p-8 transition-colors duration-300">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             {error && (
               <div className="p-3 rounded-lg bg-expense/10 border border-expense/20 text-expense text-sm">
@@ -96,7 +95,7 @@ export const Login = () => {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Don't have an account?{' '}
               <Link to="/register" className="text-primary font-medium hover:underline">
                 Create Account

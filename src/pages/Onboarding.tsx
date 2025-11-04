@@ -200,15 +200,17 @@ export const Onboarding = () => {
             </div>
           </div>
 
-          <div className="flex justify-between items-center mt-8">
-            <Button
-              onClick={handleSkip}
-              variant="ghost"
-              className="flex items-center gap-2"
-            >
-              <SkipForward className="w-4 h-4" />
-              Skip Setup
-            </Button>
+<div className="flex justify-between items-center mt-8">
+  <Button
+    onClick={handleSkip}
+    variant="ghost"
+    className="flex items-center gap-2 group
+               text-primary DEFAULT dark:text-white
+               hover:text-primary-light dark:hover:text-primary"
+  >
+    <SkipForward className="w-4 h-4 group-hover:text-primary-light dark:group-hover:text-primary" />
+    Skip Setup
+  </Button>
             
             <Button
               onClick={handleComplete}

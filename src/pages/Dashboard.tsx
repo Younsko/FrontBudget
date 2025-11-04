@@ -130,7 +130,6 @@ export const Dashboard = () => {
               onClick={() => navigateMonth('next')}
               className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               title="Next month"
-              disabled={!isHistoricalMonth && !isCurrentMonth}
             >
               <ChevronRight className="w-5 h-5 text-primary-dark dark:text-primary-light" />
             </button>
@@ -138,27 +137,27 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Carte principale - budget */}
-      <Card className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-dark to-primary-dark dark:from-primary-light dark:via-primary dark:to-primary-dark opacity-90"></div>
-        <div className="relative z-10 space-y-4 text-white dark:text-primary-dark">
-          <div>
-            <p className="text-white/80 dark:text-primary-dark/80 text-sm mb-1">Total Spent in {currentMonth}</p>
-            <p className="text-4xl font-bold">{formatAmount(totalSpent)}</p>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-white/80 dark:text-primary-dark/80">
-              of {formatAmount(totalBudget)} budget
-            </span>
-            <div className="flex-1 h-2 bg-white/20 dark:bg-primary-dark/20 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-white dark:bg-primary-dark rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </Card>
+{/* Carte principale - budget */}
+<Card isDashboard={true} className="relative overflow-hidden rounded-lg">
+  <div className="relative z-10 space-y-4 p-4">
+    <div>
+      <p className="text-white text-sm mb-1">Total Spent in {currentMonth}</p>
+      <p className="text-4xl font-bold text-white">{formatAmount(totalSpent)}</p>
+    </div>
+    <div className="flex items-center gap-2 text-sm">
+      <span className="text-white">
+        of {formatAmount(totalBudget)} budget
+      </span>
+      <div className="flex-1 h-2 bg-white/30 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-white rounded-full transition-all duration-500"
+          style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
+        />
+      </div>
+    </div>
+  </div>
+</Card>
+
 
       {/* Statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -284,7 +283,13 @@ export const Dashboard = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-primary-dark dark:text-white">Recent Transactions - {currentMonth}</h2>
           <Link to="/transactions">
-            <Button variant="ghost" size="sm">View All <ArrowRight className="w-4 h-4 ml-1" /></Button>
+<Button
+  variant="ghost"
+  size="sm"
+  className="text-green-400 dark:text-green-400 hover:bg-green-500/10 dark:hover:bg-green-500/20"
+>
+  View All <ArrowRight className="w-4 h-4 ml-1" />
+</Button>
           </Link>
         </div>
         {recentTransactions.length > 0 ? (

@@ -13,30 +13,47 @@ import { Category } from "../types";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
 
+// --- Hook Dark Mode ---
+const useDarkMode = () => {
+  const [isDark, setIsDark] = useState(false);
+  useState(() => {
+    const root = document.documentElement;
+    setIsDark(root.classList.contains("dark"));
+  });
+  useState(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  });
+  return isDark;
+};
+
+// --- Couleurs preset ---
 const PRESET_COLORS = [
-  "#17B169",
-  "#4A90E2",
-  "#E84855",
-  "#F4C430",
-  "#9B59B6",
-  "#E67E22",
-  "#1ABC9C",
-  "#34495E",
-  "#FF6B6B",
-  "#95E1D3",
+  "#17B169", "#4A90E2", "#E84855", "#F4C430",
+  "#9B59B6", "#E67E22", "#1ABC9C", "#34495E",
+  "#FF6B6B", "#95E1D3",
 ];
 
-const isLightColor = (color: string): boolean => {
-  const hex = color.replace('#', '');
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6;
+// --- Fonctions utilitaires ---
+const adjustColorForDarkMode = (color: string, darkMode: boolean) => {
+  if (!darkMode) return color;
+  const amount = -80; // assombrir
+  return color.replace(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i, (_, r, g, b) => {
+    const clamp = (val: number) => Math.max(0, Math.min(255, val));
+    const newR = clamp(parseInt(r, 16) + amount).toString(16).padStart(2, "0");
+    const newG = clamp(parseInt(g, 16) + amount).toString(16).padStart(2, "0");
+    const newB = clamp(parseInt(b, 16) + amount).toString(16).padStart(2, "0");
+    return `#${newR}${newG}${newB}`;
+  });
 };
 
 export const Categories = () => {
   const queryClient = useQueryClient();
+  const isDark = useDarkMode();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
@@ -114,7 +131,7 @@ export const Categories = () => {
     }
   };
 
-  // ----------------- FACTS / STATS -----------------
+  // Stats cards
   const stats = useMemo(() => {
     if (!categories.length) return [];
     const totalSpent = categories.reduce((sum, cat) => sum + (cat.spent || 0), 0);
@@ -132,9 +149,10 @@ export const Categories = () => {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      {/* Page Header */}
+
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-primary-dark dark:text-primary-light">
+        <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-primary-dark"}`}>
           Categories
         </h1>
         <Button
@@ -142,17 +160,19 @@ export const Categories = () => {
           onClick={() => handleOpenModal()}
           className="hidden lg:flex items-center gap-2"
         >
-          <Plus className="w-5 h-5" />
-          New Category
+          <Plus className="w-5 h-5" /> New Category
         </Button>
       </div>
 
-      {/* Facts / Cards */}
+      {/* Stats */}
       {categories.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {stats.map((stat, idx) => (
-            <Card key={idx} className="p-4 bg-primary/10 dark:bg-primary-dark/20 flex flex-col items-center justify-center">
-              <h3 className="text-sm text-primary-dark dark:text-primary-light">{stat.title}</h3>
+            <Card
+              key={idx}
+              className={`p-4 ${isDark ? "bg-primary-dark/20" : "bg-primary/10"} flex flex-col items-center justify-center`}
+            >
+              <h3 className={`${isDark ? "text-white" : "text-primary-dark"} text-sm`}>{stat.title}</h3>
               <p className="text-2xl font-bold mt-2">{stat.value}</p>
             </Card>
           ))}
@@ -173,56 +193,54 @@ export const Categories = () => {
               key={category.id}
               hover
               className="rounded-2xl overflow-hidden shadow-md border-none transition-all transform hover:scale-105"
-              style={{ backgroundColor: category.color }}
+              style={{ backgroundColor: adjustColorForDarkMode(category.color, isDark) }}
             >
               <div className="space-y-4 p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold drop-shadow-lg" style={{ color: isLightColor(category.color) ? '#023020' : '#FFFFFF' }}>{category.name}</h3>
-                    <p className="text-sm drop-shadow-lg" style={{ color: isLightColor(category.color) ? 'rgba(2,48,32,0.8)' : 'rgba(255,255,255,0.9)' }}>
-                      €{(budget || 0).toFixed(2)} Budget
-                    </p>
+                    <h3 className="font-semibold text-white">{category.name}</h3>
+                    <p className="text-sm text-white/90">€{budget.toFixed(2)} Budget</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenModal(category)}
-                      className="p-2 bg-black/10 backdrop-blur-sm border border-white/30 rounded-lg hover:bg-black/20 transition-colors"
+                      className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
                     >
-                      <Edit2 className="w-4 h-4" style={{ color: isLightColor(category.color) ? '#023020' : '#FFFFFF' }} />
+                      <Edit2 className="w-4 h-4 text-white" />
                     </button>
                     <button
                       onClick={() => handleDelete(category.id)}
-                      className="p-2 bg-black/10 backdrop-blur-sm border border-white/30 rounded-lg hover:bg-black/20 transition-colors"
+                      className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
                     >
-                      <Trash2 className="w-4 h-4" style={{ color: isLightColor(category.color) ? '#023020' : '#FFFFFF' }} />
+                      <Trash2 className="w-4 h-4 text-white" />
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm drop-shadow-lg" style={{ color: isLightColor(category.color) ? 'rgba(2,48,32,0.8)' : 'rgba(255,255,255,0.9)' }}>
+                  <div className="flex items-center justify-between text-sm text-white/90">
                     <span>Spent</span>
-                    <span className="font-semibold">€{(spent || 0).toFixed(2)}</span>
+                    <span className="font-semibold">€{spent.toFixed(2)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm drop-shadow-lg" style={{ color: isLightColor(category.color) ? 'rgba(2,48,32,0.8)' : 'rgba(255,255,255,0.9)' }}>
+                  <div className="flex items-center justify-between text-sm text-white/90">
                     <span>Remaining</span>
-                    <span className="font-semibold">€{(remaining || 0).toFixed(2)}</span>
+                    <span className="font-semibold">€{remaining.toFixed(2)}</span>
                   </div>
 
-                  <div className="w-full h-3 bg-black/15 backdrop-blur-sm rounded-full overflow-hidden shadow-inner">
+                  <div className="w-full h-3 bg-white/25 rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all duration-500 shadow-sm"
+                      className="h-full rounded-full transition-all duration-500"
                       style={{
                         width: `${Math.min(percentage, 100)}%`,
-                        backgroundColor: isOverBudget ? "#E84855" : (isLightColor(category.color) ? 'rgba(2,48,32,0.7)' : 'rgba(255,255,255,0.85)'),
+                        backgroundColor: isOverBudget ? "#E84855" : "rgba(255,255,255,0.9)",
                       }}
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-xs drop-shadow-lg" style={{ color: isLightColor(category.color) ? 'rgba(2,48,32,0.7)' : 'rgba(255,255,255,0.8)' }}>
+                  <div className="flex items-center justify-between text-xs text-white/80">
                     <span>{percentage.toFixed(0)}% used</span>
                     {isOverBudget && (
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 text-white/80">
                         <TrendingUp className="w-3 h-3" />
                         Over budget
                       </span>
@@ -260,27 +278,29 @@ export const Categories = () => {
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Input
-            label="Category Name"
-            placeholder="Food & Dining"
-            {...register("name", { required: "Category name is required" })}
-            error={errors.name?.message as string}
-          />
+<Input
+  label="Category Name"
+  placeholder="Food & Dining"
+  {...register("name", { required: "Category name is required" })}
+  error={errors.name?.message as string}
+  className="bg-secondary dark:bg-secondary-dark-lighter text-black"
+  placeholderClassName="text-gray-500 dark:text-gray-300"
+  labelClassName="text-primary-dark dark:text-white" // ← ici on change le label
+/>
 
-          <Input
-            label="Monthly Budget"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            {...register("budget", {
-              required: "Budget is required",
-              min: { value: 0, message: "Budget must be positive" },
-            })}
-            error={errors.budget?.message as string}
-          />
-
+<Input
+  label="Monthly Budget"
+  type="number"
+  step="0.01"
+  placeholder="0.00"
+  {...register("budget", { required: "Budget is required", min: { value: 0, message: "Budget must be positive" } })}
+  error={errors.budget?.message as string}
+  className="bg-secondary dark:bg-secondary-dark-lighter text-black"
+  placeholderClassName="text-gray-500 dark:text-gray-300"
+  labelClassName="text-primary-dark dark:text-white" // ← label en blanc en dark
+/>
           <div>
-            <label className="block text-sm font-medium text-primary-dark dark:text-primary-light mb-3">
+            <label className={`block text-sm font-medium mb-3 ${isDark ? "text-white" : "text-primary-dark"}`}>
               Category Color
             </label>
             <div className="grid grid-cols-5 gap-3">

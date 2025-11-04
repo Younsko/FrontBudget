@@ -51,31 +51,25 @@ export const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-chalk">
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-chalk dark:bg-chalk-dark transition-colors duration-200">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        {/* --- En-tête avec logo --- */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <div className="inline-flex items-center gap-3 mb-4">
-  <Link to="/">
-    <img
-      src={logo}
-      alt="Budget Buddy Logo"
-      className="w-16 h-16 object-contain rounded-xl shadow-card cursor-pointer"
-    />
-  </Link>
-</div>
-          </div>
-          <h1 className="text-3xl font-bold text-primary-dark mb-2">Create Account</h1>
-          <p className="text-gray-600">Start managing your budget today</p>
+          <Link to="/" className="inline-flex items-center justify-center mb-4">
+            <img
+              src={logo}
+              alt="Budget Buddy Logo"
+              className="w-16 h-16 object-contain rounded-xl shadow-card cursor-pointer"
+            />
+          </Link>
+          <h1 className="text-3xl font-bold text-primary-dark dark:text-white mb-2">Create Account</h1>
+          <p className="text-gray-600 dark:text-gray-400">Start managing your budget today</p>
         </div>
 
-        {/* --- Formulaire --- */}
-        <div className="bg-white rounded-2xl shadow-card p-8">
+        <div className="rounded-2xl shadow-card p-8 bg-white dark:bg-secondary-dark transition-colors duration-200">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {error && (
               <div className="p-3 rounded-lg bg-expense/10 border border-expense/20 text-expense text-sm">
@@ -115,16 +109,14 @@ export const Register = () => {
             />
 
             <div>
-              <label className="block text-sm font-medium text-primary-dark mb-2">
+              <label className="block text-sm font-medium text-primary-dark dark:text-white mb-2">
                 Preferred Currency
               </label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-300" />
                 <select
                   {...register('currency', { required: 'Currency is required' })}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 bg-white
-                    focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
-                    transition-all duration-200"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-secondary-dark text-primary-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent transition-all duration-200"
                 >
                   <option value="EUR">EUR - Euro</option>
                   <option value="USD">USD - US Dollar</option>
@@ -181,9 +173,9 @@ export const Register = () => {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Already have an account?{' '}
-              <Link to="/login" className="text-primary font-medium hover:underline">
+              <Link to="/login" className="text-primary dark:text-primary-light font-medium hover:underline">
                 Sign In
               </Link>
             </p>

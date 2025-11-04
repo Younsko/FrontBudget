@@ -5,15 +5,18 @@ interface CardProps {
   className?: string;
   hover?: boolean;
   glass?: boolean;
-  style?: React.CSSProperties; // ajouté
+  style?: React.CSSProperties; // Ajout d'une prop pour le style personnalisé
+  isDashboard?: boolean; // Prop pour savoir si on est dans le dashboard
 }
 
-export const Card = ({ children, className = '', hover = false, glass = false, style }: CardProps) => {
+export const Card = ({ children, className = '', hover = false, glass = false, style, isDashboard = false }: CardProps) => {
   const baseStyles = 'rounded-xl p-6 border transition-all duration-200';
   const hoverStyles = hover ? 'hover:shadow-card dark:hover:shadow-card-dark cursor-pointer' : '';
   const glassStyles = glass 
     ? 'glass-effect dark:bg-secondary-dark/40 dark:backdrop-blur-sm' 
-    : 'bg-white dark:bg-secondary-dark shadow-soft dark:shadow-soft-dark';
+    : isDashboard 
+      ? 'bg-[#17B169] dark:bg-secondary-dark shadow-soft dark:shadow-soft-dark' 
+      : 'bg-white dark:bg-secondary-dark shadow-soft dark:shadow-soft-dark';
 
   return (
     <div

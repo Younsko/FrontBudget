@@ -4,14 +4,29 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
+  labelClassName?: string;       // Classe personnalisée pour le label
+  placeholderClassName?: string; // Classe personnalisée pour le placeholder
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, icon, className = '', ...props }, ref) => {
+  (
+    {
+      label,
+      error,
+      icon,
+      className = '',
+      labelClassName = '',
+      placeholderClassName = '',
+      ...props
+    },
+    ref
+  ) => {
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-primary-dark mb-2">
+          <label
+            className={`block text-sm font-medium mb-2 ${labelClassName}`}
+          >
             {label}
           </label>
         )}
@@ -23,7 +38,10 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           <input
             ref={ref}
-            className={`w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white
+            className={`w-full px-4 py-2.5 rounded-lg border border-gray-200
+              bg-white dark:bg-secondary-dark-lighter
+              text-black dark:text-white
+              placeholder-gray-400 dark:placeholder-gray-300
               focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
               transition-all duration-200 ${icon ? 'pl-10' : ''} ${error ? 'border-expense' : ''} ${className}`}
             {...props}
