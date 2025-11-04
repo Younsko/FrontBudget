@@ -30,7 +30,6 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       AUD: 1.65
     };
     
-    // Conversion: montant * (taux cible / taux source)
     const rate = rates[toCurrency] / rates[fromCurrency];
     return amount * rate;
   }

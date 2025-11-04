@@ -89,7 +89,6 @@ const handleOcrFromUrl = async () => {
     
     console.log('OCR Response:', ocrResult);
 
-    // Pré-remplir le formulaire avec les données OCR
     if (ocrResult?.amount !== null && ocrResult?.amount !== undefined) {
       setValue('amount', parseFloat(ocrResult.amount.toString()));
     } else {
@@ -108,7 +107,6 @@ const handleOcrFromUrl = async () => {
 
     if (ocrResult?.date) {
       try {
-        // La date OCR est au format "DD-MM-YYYY"
         const dateParts = ocrResult.date.split('-');
         if (dateParts.length === 3) {
           const [day, month, year] = dateParts;
@@ -121,7 +119,6 @@ const handleOcrFromUrl = async () => {
       }
     }
 
-    // ✅ NOUVEAU : Auto-sélectionner la catégorie si l'OCR l'a détectée
     if (ocrResult?.categoryName) {
       const matchingCategory = categories.find(
         cat => cat.name === ocrResult.categoryName
@@ -135,14 +132,12 @@ const handleOcrFromUrl = async () => {
       }
     }
     
-    // Feedback à l'utilisateur
     if (ocrResult?.amount || ocrResult?.description) {
       console.log('OCR data successfully applied to form');
     } else {
       console.log('No data detected from OCR');
     }
     
-    // Reset l'URL après utilisation
     setImageUrl('');
     
   } catch (error) {
@@ -217,7 +212,6 @@ const filteredTransactions = transactions.filter(t => {
 });
 
 
-  // Générer les options pour les années
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
   const months = [
@@ -444,7 +438,6 @@ const filteredTransactions = transactions.filter(t => {
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* ✅ NOUVELLE SECTION : OCR par URL */}
           <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
               <Camera className="w-4 h-4" />
@@ -528,13 +521,11 @@ const filteredTransactions = transactions.filter(t => {
             error={errors.description?.message as string}
           />
 
-          {/* Date inputs séparés */}
           <div>
             <label className="block text-sm font-medium text-primary-dark dark:text-primary-light mb-2">
               Date
             </label>
             <div className="grid grid-cols-3 gap-3">
-              {/* Jour */}
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Day</label>
                 <select
@@ -558,7 +549,6 @@ const filteredTransactions = transactions.filter(t => {
                 )}
               </div>
 
-              {/* Mois */}
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Month</label>
                 <select
@@ -582,7 +572,6 @@ const filteredTransactions = transactions.filter(t => {
                 )}
               </div>
 
-              {/* Année */}
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Year</label>
                 <select
