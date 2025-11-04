@@ -68,6 +68,7 @@ export const Login = () => {
 
             <Input
               label="Username or Email"
+              autoComplete="off"
               icon={<Mail className="w-5 h-5" />}
               placeholder="Enter your username or email"
               {...register('username', { required: 'Username or email is required' })}

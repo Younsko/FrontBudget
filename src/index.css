@@ -4,77 +4,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/* -------------------------------
+   Base styles
+---------------------------------*/
 @layer base {
   body {
     @apply bg-chalk dark:bg-chalk-dark text-primary-dark dark:text-white font-sans antialiased transition-colors duration-200;
   }
 }
 
+/* -------------------------------
+   Utility classes
+---------------------------------*/
 @layer utilities {
   .glass-effect {
     @apply bg-white/60 backdrop-blur-sm border border-white/20;
   }
-  
+
   .dark .glass-effect {
     @apply bg-secondary-dark/60 backdrop-blur-sm border border-secondary-dark/20;
   }
 }
 
+/* -------------------------------
+   Component styles
+---------------------------------*/
 @layer components {
+  /* Buttons */
   .btn-primary {
     @apply bg-primary hover:bg-primary/90 dark:bg-primary-light dark:hover:bg-primary-light/90 text-white transition-all duration-200;
   }
-  
+
   .btn-secondary {
     @apply bg-secondary hover:bg-secondary/80 dark:bg-secondary-dark dark:hover:bg-secondary-dark/80 text-primary-dark dark:text-primary-light transition-all duration-200;
   }
-  
+
+  /* Cards & Text Gradients */
   .card-hover {
     @apply transition-all duration-300 hover:shadow-card dark:hover:shadow-card-dark hover:-translate-y-1;
   }
-  
+
   .text-gradient {
     @apply bg-gradient-to-r from-primary to-primary-dark dark:from-primary-light dark:to-primary bg-clip-text text-transparent;
   }
 
-  input:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0px 1000px #1f1f1d inset;
-    -webkit-text-fill-color: #ffffff;
-    caret-color: #ffffff;
-    transition: background-color 5000s ease-in-out 0s;
-  }
-
-  input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0px 1000px #1f1f1d inset;
-    -webkit-text-fill-color: #ffffff;
-    caret-color: #ffffff;
-  }
-
-  .dark input {
-    caret-color: #ffffff;
-  }
-  @layer base {
-  body {
-    @apply bg-chalk dark:bg-chalk-dark text-primary-dark dark:text-white font-sans antialiased transition-colors duration-200;
-  }
-}
-
-@layer components {
+  /* Inputs, selects, textarea */
   input, select, textarea {
     @apply bg-white dark:bg-secondary-dark dark:text-white border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent transition-all duration-200;
-  }
-
-  input:-webkit-autofill {
-    -webkit-box-shadow: 0 0 0px 1000px #1f1f1d inset;
-    -webkit-text-fill-color: #ffffff;
-    caret-color: #ffffff;
-    transition: background-color 5000s ease-in-out 0s;
-  }
-
-  input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0px 1000px #1f1f1d inset;
-    -webkit-text-fill-color: #ffffff;
-    caret-color: #ffffff;
+    color: #000000;
   }
 
   select {
@@ -82,7 +59,57 @@
     -moz-appearance: none;
     appearance: none;
   }
+
+  /* -------------------------------
+     Autofill Normal Mode
+  ---------------------------------*/
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+    -webkit-text-fill-color: #000000 !important;
+    color: #000000 !important;
+    caret-color: #000000 !important;
+    transition: background-color 5000s ease-in-out 0s;
+    animation-name: onAutoFillStart;
+    animation-duration: 0.01s;
+  }
+
+  /* -------------------------------
+     Autofill Dark Mode
+  ---------------------------------*/
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark input:-webkit-autofill:active,
+  .dark select:-webkit-autofill,
+  .dark select:-webkit-autofill:hover,
+  .dark select:-webkit-autofill:focus,
+  .dark select:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px #1f1f1d inset !important;
+    -webkit-text-fill-color: #ffffff !important;
+    color: #ffffff !important;
+    caret-color: #ffffff !important;
+    transition: background-color 5000s ease-in-out 0s;
+    animation-name: onAutoFillStart;
+    animation-duration: 0.01s;
+  }
+
+  /* Ensure caret color in dark mode */
+  .dark input,
+  .dark select,
+  .dark textarea {
+    caret-color: #ffffff;
+  }
+
+  /* Chrome autofill hack animation */
+  @keyframes onAutoFillStart {}
 }
+
+/* -------------------------------
+   Dark mode inputs, selects, textarea
+---------------------------------*/
 .dark input,
 .dark select,
 .dark textarea {
@@ -90,17 +117,4 @@
   color: #ffffff !important;
   caret-color: #ffffff;
   transition: background-color 200ms, color 200ms;
-}
-
-.dark input:-webkit-autofill,
-.dark input:-webkit-autofill:hover,
-.dark input:-webkit-autofill:focus,
-.dark select:-webkit-autofill,
-.dark select:-webkit-autofill:hover,
-.dark select:-webkit-autofill:focus {
-  -webkit-box-shadow: 0 0 0px 1000px #1f1f1d inset !important;
-  -webkit-text-fill-color: #ffffff !important;
-  caret-color: #ffffff !important;
-  transition: background-color 5000s ease-in-out 0s;
-}
 }

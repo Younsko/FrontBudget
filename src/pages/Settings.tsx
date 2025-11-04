@@ -72,9 +72,9 @@ const onPasswordSubmit = (data: any) => {
 const onCurrencySubmit = (data: any) => {
   if (data.currency) {
     updateCurrencyMutation.mutate(data.currency);
+    setValue('currency', data.currency);
   }
 };
-
 const onDeleteSubmit = (data: any) => {
   deleteAccountMutation.mutate({
     password: data.password,

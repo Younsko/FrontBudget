@@ -81,12 +81,14 @@ export const Register = () => {
               label="Full Name"
               icon={<UserIcon className="w-5 h-5" />}
               placeholder="Enter your full name"
+              autoComplete="off"
               {...register('name', { required: 'Name is required' })}
               error={errors.name?.message}
             />
 
             <Input
               label="Username"
+              autoComplete="off"
               icon={<UserIcon className="w-5 h-5" />}
               placeholder="Choose a username"
               {...register('username', {
@@ -99,6 +101,7 @@ export const Register = () => {
             <Input
               label="Email"
               type="email"
+              autoComplete="off"
               icon={<Mail className="w-5 h-5" />}
               placeholder="Enter your email"
               {...register('email', {
