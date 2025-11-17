@@ -18,6 +18,7 @@ export const Card = ({ children, className = '', hover = false, glass = false, s
       ? 'bg-[#17B169] dark:bg-secondary-dark shadow-soft dark:shadow-soft-dark' 
       : 'bg-white dark:bg-secondary-dark shadow-soft dark:shadow-soft-dark';
 
+      
   return (
     <div
       className={`${baseStyles} ${glassStyles} ${hoverStyles} ${className}`}
