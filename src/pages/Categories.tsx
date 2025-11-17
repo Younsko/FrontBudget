@@ -8,7 +8,7 @@ import { Button } from "../components/Button";
 import { Modal } from "../components/Modal";
 import { Input } from "../components/Input";
 import { FloatingActionButton } from "../components/FloatingActionButton";
-import { categoriesAPI, monthlyBudgetsAPI } from "../services/api";
+import { categoriesAPI, monthlyBudgetsAPI, transactionsAPI } from "../services/api";
 import { Category, MonthlyBudget } from "../types";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
@@ -86,6 +86,28 @@ export const Categories = () => {
     staleTime: 0,
     cacheTime: 0,
   });
+
+  // ✅ Récupérer toutes les transactions pour calculer les dépenses non catégorisées
+  const { data: allTransactions = [] } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => transactionsAPI.getAll(),
+  });
+
+  // Filtrer les transactions du mois sélectionné
+  const filteredTransactions = useMemo(() => {
+    return allTransactions.filter(transaction => {
+      const transactionDate = new Date(transaction.transactionDate);
+      return transactionDate.getMonth() === selectedDate.getMonth() && 
+             transactionDate.getFullYear() === selectedDate.getFullYear();
+    });
+  }, [allTransactions, selectedDate]);
+
+  // Calculer les dépenses non catégorisées
+  const uncategorizedSpent = useMemo(() => {
+    return filteredTransactions
+      .filter(t => !t.category_id)
+      .reduce((sum, t) => sum + convertAmount(t.amountPHP || t.amount, 'PHP'), 0);
+  }, [filteredTransactions, convertAmount]);
 
   useEffect(() => {
     refetchCategories();
@@ -179,77 +201,82 @@ export const Categories = () => {
   };
 
   const onSubmit = (data: any) => {
-  if (editingBudget) {
-    const category = categories.find(c => c.id === editingBudget.categoryId);
+    if (editingBudget) {
+      const category = categories.find(c => c.id === editingBudget.categoryId);
 
-    // Vérifier si le mois est éditable
-    if (!editingBudget.isEditable) {
-      alert("Cannot modify budgets for past months");
+      // Vérifier si le mois est éditable
+      if (!editingBudget.isEditable) {
+        alert("Cannot modify budgets for past months");
+        return;
+      }
+
+      // Étape 1 : Mettre à jour le budget
+      updateBudgetMutation.mutate(
+        {
+          categoryId: String(editingBudget.categoryId),
+          budgetAmount: parseFloat(data.budget) || 0,
+        },
+        {
+          onSuccess: () => {
+            // Étape 2 : Mettre à jour le nom et la couleur
+            if (category) {
+              updateCategoryMutation.mutate(
+                { id: category.id, data: { name: data.name, color: selectedColor } },
+                {
+                  onSuccess: () => {
+                    // Étape 3 : fermer le modal
+                    setIsModalOpen(false);
+                    setEditingBudget(null);
+                    reset();
+                    setSelectedColor(PRESET_COLORS[0]);
+                  },
+                }
+              );
+            } else {
+              // Si pas de catégorie trouvée, fermer quand même le modal
+              setIsModalOpen(false);
+              setEditingBudget(null);
+              reset();
+              setSelectedColor(PRESET_COLORS[0]);
+            }
+          },
+        }
+      );
+    } else {
+      // Création d'une nouvelle catégorie
+      const payload = { name: data.name, color: selectedColor };
+
+      createMutation.mutate(payload, {
+        onSuccess: async (newCategory) => {
+          // Créer le budget initial juste après
+          if (newCategory?.id) {
+            await updateBudgetMutation.mutateAsync({
+              categoryId: newCategory.id,
+              budgetAmount: parseFloat(data.budget) || 0,
+            });
+          }
+        }
+      });
+    }
+  };
+
+  const handleDelete = (id: string | number) => {
+    if (id === 'uncategorized') {
+      alert("Cannot delete the Uncategorized category. Assign categories to your transactions instead.");
       return;
     }
-
-    // Étape 1 : Mettre à jour le budget
-    updateBudgetMutation.mutate(
-      {
-        categoryId: String(editingBudget.categoryId),
-        budgetAmount: parseFloat(data.budget) || 0,
-      },
-      {
-        onSuccess: () => {
-          // Étape 2 : Mettre à jour le nom et la couleur
-          if (category) {
-            updateCategoryMutation.mutate(
-              { id: category.id, data: { name: data.name, color: selectedColor } },
-              {
-                onSuccess: () => {
-                  // Étape 3 : fermer le modal
-                  setIsModalOpen(false);
-                  setEditingBudget(null);
-                  reset();
-                  setSelectedColor(PRESET_COLORS[0]);
-                },
-              }
-            );
-          } else {
-            // Si pas de catégorie trouvée, fermer quand même le modal
-            setIsModalOpen(false);
-            setEditingBudget(null);
-            reset();
-            setSelectedColor(PRESET_COLORS[0]);
-          }
-        },
-      }
-    );
-  } else {
-    // Création d'une nouvelle catégorie
-        const payload = { name: data.name, color: selectedColor };
-
-    createMutation.mutate(payload, {
-      onSuccess: async (newCategory) => {
-        // Créer le budget initial juste après
-        if (newCategory?.id) {
-          await updateBudgetMutation.mutateAsync({
-            categoryId: newCategory.id,
-            budgetAmount: parseFloat(data.budget) || 0,
-          });
-        }
-      }
-    });
-  }
-};
-  const handleDelete = (id: string | number) => {
     if (window.confirm("Are you sure you want to delete this category? All associated transactions will be uncategorized.")) {
       deleteMutation.mutate(id);
     }
   };
 
   const stats = useMemo(() => {
-    if (!monthlyBudgets.length) return [];
+    if (!monthlyBudgets.length && uncategorizedSpent === 0) return [];
     
     const totalSpent = monthlyBudgets.reduce((sum, budget) => {
       const convertedSpent = convertAmount(budget.spentThisMonth || 0, 'PHP');
       return sum + convertedSpent;
-    }, 0);
+    }, 0) + uncategorizedSpent; // ✅ Ajouter les dépenses non catégorisées
     
     const totalBudget = monthlyBudgets.reduce((sum, budget) => {
       const convertedBudget = convertAmount(budget.budgetAmount || 0, 'PHP');
@@ -267,14 +294,14 @@ export const Categories = () => {
     const highestCategory = categories.find(c => c.id === highestBudget.categoryId);
 
     return [
-      { title: "Categories", value: categories.length },
+      { title: "Categories", value: categories.length + (uncategorizedSpent > 0 ? 1 : 0) }, // ✅ +1 si uncategorized
       { title: "Total Spent", value: formatAmount(totalSpent) },
-      { title: "Highest Spent", value: highestCategory?.name || "N/A" },
+      { title: "Highest Spent", value: uncategorizedSpent > (convertAmount(highestBudget?.spentThisMonth || 0, 'PHP')) ? "Uncategorized" : (highestCategory?.name || "N/A") },
     ];
-  }, [monthlyBudgets, categories, formatAmount, convertAmount]);
+  }, [monthlyBudgets, categories, formatAmount, convertAmount, uncategorizedSpent]);
 
   const budgetCategories = useMemo(() => {
-    return categories.map(category => {
+    const categoriesWithBudgets = categories.map(category => {
       const budget = monthlyBudgets.find(b => b.categoryId === category.id);
 
       const convertedBudget = convertAmount(budget?.budgetAmount || 0, 'PHP');
@@ -285,10 +312,28 @@ export const Categories = () => {
         budget,
         convertedBudget,
         convertedSpent,
-        isEditable: budget?.isEditable ?? false // ✅ Ajout du flag éditable
+        isEditable: budget?.isEditable ?? false
       };
     });
-  }, [monthlyBudgets, categories, convertAmount]);
+
+    // ✅ Ajouter une catégorie "Uncategorized" si des transactions non catégorisées existent
+    if (uncategorizedSpent > 0) {
+      categoriesWithBudgets.push({
+        category: {
+          id: 'uncategorized',
+          name: 'Uncategorized',
+          color: '#9CA3AF',
+          user_id: '',
+        },
+        budget: undefined,
+        convertedBudget: 0,
+        convertedSpent: uncategorizedSpent,
+        isEditable: false
+      });
+    }
+
+    return categoriesWithBudgets;
+  }, [monthlyBudgets, categories, convertAmount, uncategorizedSpent]);
 
   if (isCategoriesLoading || isBudgetsLoading) {
     return (
@@ -336,7 +381,7 @@ export const Categories = () => {
       </div>
 
       {/* Stats */}
-      {categories.length > 0 && (
+      {(categories.length > 0 || uncategorizedSpent > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {stats.map((stat, idx) => (
             <Card
@@ -357,14 +402,15 @@ export const Categories = () => {
 
           const spent = convertedSpent || 0;
           const budgetAmount = convertedBudget || 0;
-          const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
+          const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : (category.id === 'uncategorized' ? 100 : 0);
           const remaining = Math.max(0, budgetAmount - spent);
-          const isOverBudget = spent > budgetAmount;
+          const isOverBudget = budgetAmount > 0 && spent > budgetAmount;
+          const isUncategorized = category.id === 'uncategorized';
 
           return (
             <Card
               key={category.id}
-              hover
+              hover={!isUncategorized}
               className="rounded-2xl overflow-hidden shadow-md border-none transition-all transform hover:scale-105"
               style={{ backgroundColor: adjustColorForDarkMode(category.color, isDark) }}
             >
@@ -372,30 +418,40 @@ export const Categories = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold text-white">{category.name}</h3>
-                    <p className="text-sm text-white/90">{formatAmount(budgetAmount)} Budget</p>
+                    <p className="text-sm text-white/90">
+                      {budgetAmount > 0 ? formatAmount(budgetAmount) + ' Budget' : 'No budget set'}
+                    </p>
                     {/* ✅ Indicateur si mois verrouillé */}
-                    {!isEditable && (
+                    {!isEditable && !isUncategorized && (
                       <div className="flex items-center gap-1 mt-1 text-xs text-white/70">
                         <Lock className="w-3 h-3" />
                         <span>Past month (read-only)</span>
                       </div>
                     )}
+                    {isUncategorized && (
+                      <div className="flex items-center gap-1 mt-1 text-xs text-white/70">
+                        <Activity className="w-3 h-3" />
+                        <span>Transactions without category</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleOpenModal(budget)}
-                      className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
-                      title={isEditable ? "Edit category" : "View only (past month)"}
-                    >
-                      <Edit2 className="w-4 h-4 text-white" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(category.id)}
-                      className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4 text-white" />
-                    </button>
-                  </div>
+                  {!isUncategorized && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleOpenModal(budget)}
+                        className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
+                        title={isEditable ? "Edit category" : "View only (past month)"}
+                      >
+                        <Edit2 className="w-4 h-4 text-white" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(category.id)}
+                        className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -403,30 +459,36 @@ export const Categories = () => {
                     <span>Spent</span>
                     <span className="font-semibold">{formatAmount(spent)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm text-white/90">
-                    <span>Remaining</span>
-                    <span className="font-semibold">{formatAmount(remaining)}</span>
-                  </div>
+                  {budgetAmount > 0 && (
+                    <div className="flex items-center justify-between text-sm text-white/90">
+                      <span>Remaining</span>
+                      <span className="font-semibold">{formatAmount(remaining)}</span>
+                    </div>
+                  )}
 
-                  <div className="w-full h-3 bg-white/25 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${Math.min(percentage, 100)}%`,
-                        backgroundColor: isOverBudget ? "#E84855" : "rgba(255,255,255,0.9)",
-                      }}
-                    />
-                  </div>
+                  {budgetAmount > 0 && (
+                    <>
+                      <div className="w-full h-3 bg-white/25 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(percentage, 100)}%`,
+                            backgroundColor: isOverBudget ? "#E84855" : "rgba(255,255,255,0.9)",
+                          }}
+                        />
+                      </div>
 
-                  <div className="flex items-center justify-between text-xs text-white/80">
-                    <span>{percentage.toFixed(0)}% used</span>
-                    {isOverBudget && (
-                      <span className="flex items-center gap-1 text-white/80">
-                        <TrendingUp className="w-3 h-3" />
-                        Over budget
-                      </span>
-                    )}
-                  </div>
+                      <div className="flex items-center justify-between text-xs text-white/80">
+                        <span>{percentage.toFixed(0)}% used</span>
+                        {isOverBudget && (
+                          <span className="flex items-center gap-1 text-white/80">
+                            <TrendingUp className="w-3 h-3" />
+                            Over budget
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </Card>
@@ -435,7 +497,7 @@ export const Categories = () => {
       </div>
 
       {/* Empty Placeholder */}
-      {categories.length === 0 && (
+      {categories.length === 0 && uncategorizedSpent === 0 && (
         <Card className="flex flex-col items-center justify-center py-12 gap-4">
           <Activity className="w-12 h-12 text-gray-300 dark:text-gray-500 animate-pulse" />
           <p className="text-gray-400 dark:text-gray-500 text-center">

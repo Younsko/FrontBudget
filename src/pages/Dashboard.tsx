@@ -1,68 +1,83 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
 import { TrendingUp, DollarSign, Activity, ArrowRight, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { transactionsAPI, categoriesAPI, userAPI, monthlyBudgetsAPI } from '../services/api';
+import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { transactionsAPI, categoriesAPI, userAPI, monthlyBudgetsAPI } from '../services/api';
 import { useCurrency } from '../hooks/useCurrency';
 
+// Helper pour symboles de devises
+const getCurrencySymbol = (currency: string): string => {
+  const symbols: { [key: string]: string } = {
+    PHP: '₱',
+    EUR: '€',
+    USD: '$',
+    GBP: '£',
+    CAD: 'C$',
+    CHF: 'CHF ',
+    JPY: '¥',
+    AUD: 'A$'
+  };
+  return symbols[currency] || currency + ' ';
+};
+
 export const Dashboard = () => {
-  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  
+
   const { data: user } = useQuery({
     queryKey: ['profile'],
     queryFn: userAPI.getProfile,
   });
 
-  const { currency, formatAmount, convertAmount } = useCurrency();
+  const { convertAmount, formatAmount, currency } = useCurrency();
 
-  // ✅ CORRIGÉ: Récupérer les budgets mensuels avec les bons paramètres
+  // Budgets du mois
   const { data: monthlyBudgets = [] } = useQuery({
     queryKey: ['monthlyBudgets', selectedDate.getFullYear(), selectedDate.getMonth() + 1],
-    queryFn: () => monthlyBudgetsAPI.getMonthlyBudgets(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth() + 1
-    ),
+    queryFn: () => monthlyBudgetsAPI.getMonthlyBudgets(selectedDate.getFullYear(), selectedDate.getMonth() + 1),
   });
 
+  // Catégories
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories', selectedDate.getFullYear(), selectedDate.getMonth() + 1],
-    queryFn: () => categoriesAPI.getAll(
-    selectedDate.getFullYear(),
-    selectedDate.getMonth() + 1
-    ),
+    queryKey: ['categories'],
+    queryFn: () => categoriesAPI.getAll(),
   });
 
-  // Récupérer toutes les transactions
+  // Toutes les transactions
   const { data: allTransactions = [] } = useQuery({
     queryKey: ['transactions'],
     queryFn: transactionsAPI.getAll,
   });
 
-  // Filtrer les transactions par mois sélectionné
-  const filteredTransactions = allTransactions.filter(transaction => {
-    const transactionDate = new Date(transaction.transactionDate); 
-    return transactionDate.getMonth() === selectedDate.getMonth() && 
-           transactionDate.getFullYear() === selectedDate.getFullYear();
-  });
+  // Filtrer transactions du mois
+  const filteredTransactions = useMemo(() => {
+    return allTransactions.filter(t => {
+      const date = new Date(t.transactionDate);
+      return date.getMonth() === selectedDate.getMonth() &&
+             date.getFullYear() === selectedDate.getFullYear();
+    });
+  }, [allTransactions, selectedDate]);
 
-  // ✅ CORRIGÉ: Calcul du total budget depuis monthlyBudgets avec conversion
-  const totalBudget = monthlyBudgets.reduce((sum, b) => {
-    // Convertir chaque budget dans la devise préférée de l'utilisateur
-    const converted = convertAmount(b.budgetAmount, b.currency);
-    return sum + converted;
-  }, 0);
+  // Calcul du total budget converti dans la devise préférée
+  const totalBudget = useMemo(() => {
+    return monthlyBudgets.reduce((sum, b) => {
+      const converted = convertAmount(b.budgetAmount, 'PHP');
+      return sum + converted;
+    }, 0);
+  }, [monthlyBudgets, convertAmount]);
 
-  // ✅ CORRIGÉ: Calcul des dépenses avec amountPHP converti
-  const totalSpent = filteredTransactions.reduce((sum, t) => {
-    // Convertir depuis PHP (base de stockage) vers la devise préférée
-    const converted = convertAmount(t.amountPHP || t.amount, 'PHP');
-    return sum + converted;
-  }, 0);
+  // Calcul du total dépensé converti dans la devise préférée
+  const totalSpent = useMemo(() => {
+    return filteredTransactions.reduce((sum, t) => {
+      const originalCurrency = t.originalCurrency || t.currency;
+      const originalAmount = t.originalAmount || t.amount;
+      const converted = convertAmount(originalAmount, originalCurrency);
+      return sum + converted;
+    }, 0);
+  }, [filteredTransactions, convertAmount]);
 
   const budgetRemaining = Math.max(0, totalBudget - totalSpent);
   const budgetPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
@@ -81,45 +96,60 @@ export const Dashboard = () => {
   const isHistoricalMonth = selectedDate < new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
   // Données pour le camembert
-  const categoryData = categories
-    .map(cat => {
+  const categoryData = useMemo(() => {
+    const data = categories.map(cat => {
       const spent = filteredTransactions
         .filter(t => t.category_id === cat.id)
-        .reduce((sum, t) => sum + convertAmount(t.amountPHP || t.amount, 'PHP'), 0);
+        .reduce((sum, t) => {
+          const originalCurrency = t.originalCurrency || t.currency;
+          const originalAmount = t.originalAmount || t.amount;
+          const converted = convertAmount(originalAmount, originalCurrency);
+          return sum + converted;
+        }, 0);
       return { name: cat.name, value: spent, color: cat.color };
-    })
-    .filter(cat => cat.value > 0);
+    }).filter(cat => cat.value > 0);
 
-  // Transactions non catégorisées
-  const uncategorizedSpent = filteredTransactions
-    .filter(t => !t.category_id)
-    .reduce((sum, t) => sum + convertAmount(t.amountPHP || t.amount, 'PHP'), 0);
+    // Transactions non catégorisées
+    const uncategorizedSpent = filteredTransactions
+      .filter(t => !t.category_id)
+      .reduce((sum, t) => {
+        const originalCurrency = t.originalCurrency || t.currency;
+        const originalAmount = t.originalAmount || t.amount;
+        const converted = convertAmount(originalAmount, originalCurrency);
+        return sum + converted;
+      }, 0);
 
-  if (uncategorizedSpent > 0) {
-    categoryData.push({ name: 'Uncategorized', value: uncategorizedSpent, color: '#9CA3AF' });
-  }
+    if (uncategorizedSpent > 0) {
+      data.push({ name: 'Uncategorized', value: uncategorizedSpent, color: '#9CA3AF' });
+    }
 
-  // Données pour les dépenses quotidiennes du mois
-  const dailySpendingMap = new Map<string, number>();
-  filteredTransactions.forEach(t => {
-    const date = new Date(t.transactionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const current = dailySpendingMap.get(date) || 0;
-    dailySpendingMap.set(date, current + convertAmount(t.amountPHP || t.amount, 'PHP'));
-  });
+    return data;
+  }, [categories, filteredTransactions, convertAmount]);
 
-  const dailyData = Array.from(dailySpendingMap.entries())
-    .map(([date, amount]) => ({ date, amount }))
-    .sort((a, b) => {
-      const dateA = new Date(a.date + ', ' + selectedDate.getFullYear());
-      const dateB = new Date(b.date + ', ' + selectedDate.getFullYear());
-      return dateA.getTime() - dateB.getTime();
+  // Dépenses quotidiennes
+  const dailyData = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredTransactions.forEach(t => {
+      const date = new Date(t.transactionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const originalCurrency = t.originalCurrency || t.currency;
+      const originalAmount = t.originalAmount || t.amount;
+      const converted = convertAmount(originalAmount, originalCurrency);
+      map.set(date, (map.get(date) || 0) + converted);
     });
+    
+    return Array.from(map.entries())
+      .map(([date, amount]) => ({ date, amount }))
+      .sort((a, b) => {
+        const dateA = new Date(a.date + ', ' + selectedDate.getFullYear());
+        const dateB = new Date(b.date + ', ' + selectedDate.getFullYear());
+        return dateA.getTime() - dateB.getTime();
+      });
+  }, [filteredTransactions, selectedDate, convertAmount]);
 
   const recentTransactions = filteredTransactions.slice(0, 5);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -148,7 +178,7 @@ export const Dashboard = () => {
               onClick={() => navigateMonth('next')}
               className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               title="Next month"
-              disabled={!isCurrentMonth && selectedDate > new Date()} // ✅ Empêcher d'aller dans le futur
+              disabled={!isCurrentMonth && selectedDate > new Date()}
             >
               <ChevronRight className="w-5 h-5 text-primary-dark dark:text-primary-light" />
             </button>
@@ -157,7 +187,7 @@ export const Dashboard = () => {
       </div>
 
       {/* Carte principale - budget */}
-      <Card isDashboard={true} className="relative overflow-hidden rounded-lg">
+      <Card isDashboard className="relative overflow-hidden rounded-lg">
         <div className="relative z-10 space-y-4 p-4">
           <div>
             <p className="text-white text-sm mb-1">Total Spent in {currentMonth}</p>
@@ -313,22 +343,42 @@ export const Dashboard = () => {
         {recentTransactions.length > 0 ? (
           <div className="space-y-3">
             {recentTransactions.map(transaction => {
-              const category = transaction.category_id ? categories.find(c => String(c.id) === String(transaction.category_id)) : null;
+              const category = transaction.category_id 
+                ? categories.find(c => String(c.id) === String(transaction.category_id)) 
+                : null;
+              
+              const originalCurrency = transaction.originalCurrency || transaction.currency;
+              const originalAmount = transaction.originalAmount || transaction.amount;
+              const convertedAmount = convertAmount(originalAmount, originalCurrency);
+              
               return (
                 <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-secondary dark:hover:bg-secondary-dark-lighter transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: category?.color ? category.color + '20' : '#E5E7EB' }}>
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: category?.color || '#9CA3AF' }} />
+                    <div 
+                      className="w-10 h-10 rounded-lg flex items-center justify-center" 
+                      style={{ backgroundColor: category?.color ? category.color + '20' : '#E5E7EB' }}
+                    >
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: category?.color || '#9CA3AF' }} 
+                      />
                     </div>
                     <div>
                       <p className="font-medium text-primary-dark dark:text-white">{transaction.description}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{category?.name || 'Uncategorized'} • {new Date(transaction.transactionDate).toLocaleDateString()}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {category?.name || 'Uncategorized'} • {new Date(transaction.transactionDate).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-expense dark:text-expense-dark">
-                      -{formatAmount(convertAmount(transaction.amountPHP || transaction.amount, 'PHP'))}
+                      -{formatAmount(convertedAmount)}
                     </p>
+                    {originalCurrency !== currency && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {getCurrencySymbol(originalCurrency)}{originalAmount.toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
