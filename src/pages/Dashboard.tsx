@@ -1,16 +1,18 @@
-import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { TrendingUp, DollarSign, Activity, ArrowRight, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { transactionsAPI, categoriesAPI, userAPI } from '../services/api';
-import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar } from 'recharts';
+import { transactionsAPI, categoriesAPI, userAPI, monthlyBudgetsAPI } from '../services/api';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useCurrency } from '../hooks/useCurrency';
 
 export const Dashboard = () => {
+  const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  
   const { data: user } = useQuery({
     queryKey: ['profile'],
     queryFn: userAPI.getProfile,
@@ -18,10 +20,13 @@ export const Dashboard = () => {
 
   const { currency, formatAmount, convertAmount } = useCurrency();
 
-  // Récupérer les stats pour le mois sélectionné (budget, dépenses totales)
-  const { data: stats } = useQuery({
-    queryKey: ['stats', selectedDate.getFullYear(), selectedDate.getMonth() + 1],
-    queryFn: () => userAPI.getStats(selectedDate.getFullYear(), selectedDate.getMonth() + 1),
+  // ✅ NOUVEAU: Récupérer les budgets mensuels au lieu de stats
+  const { data: monthlyBudgets = [] } = useQuery({
+    queryKey: ['monthlyBudgets', selectedDate.getFullYear(), selectedDate.getMonth() + 1],
+    queryFn: () => monthlyBudgetsAPI.getMonthlyBudgets(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1
+    ),
   });
 
   // Récupérer toutes les transactions
@@ -36,16 +41,49 @@ export const Dashboard = () => {
     queryFn: categoriesAPI.getAll,
   });
 
+  // ✅ NOUVEAU: Mutation pour initialiser le mois
+  const initMonthMutation = useMutation({
+    mutationFn: ({ year, month }: { year: number; month: number }) =>
+      monthlyBudgetsAPI.initializeMonth(year, month),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthlyBudgets'] });
+    },
+  });
+
+  // ✅ NOUVEAU: Initialiser automatiquement le mois actuel si nécessaire
+  useEffect(() => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    
+    // Initialiser uniquement pour le mois actuel et si les budgets sont vides
+    if (monthlyBudgets.length === 0 && 
+        selectedDate.getFullYear() === currentYear && 
+        selectedDate.getMonth() + 1 === currentMonth) {
+      initMonthMutation.mutate({ year: currentYear, month: currentMonth });
+    }
+  }, [monthlyBudgets.length, selectedDate, initMonthMutation]);
+
   // Filtrer les transactions par mois sélectionné
   const filteredTransactions = allTransactions.filter(transaction => {
-    const transactionDate = new Date(transaction.date || transaction.transactionDate); 
+    const transactionDate = new Date(transaction.transactionDate); 
     return transactionDate.getMonth() === selectedDate.getMonth() && 
            transactionDate.getFullYear() === selectedDate.getFullYear();
   });
 
-  // Calculs
-  const totalSpent = filteredTransactions.reduce((sum, t) => sum + convertAmount(t.amount || 0, t.currency), 0);
-  const totalBudget = stats?.budget_total || 0; // ← budget réel du mois
+  // ✅ NOUVEAU: Calcul du total budget depuis monthlyBudgets avec conversion
+  const totalBudget = monthlyBudgets.reduce((sum, b) => {
+    // Convertir chaque budget dans la devise préférée de l'utilisateur
+    const converted = convertAmount(b.budgetAmount, b.currency);
+    return sum + converted;
+  }, 0);
+
+  // ✅ NOUVEAU: Calcul des dépenses avec amountPHP converti
+  const totalSpent = filteredTransactions.reduce((sum, t) => {
+    // Convertir depuis PHP (base de stockage) vers la devise préférée
+    const converted = convertAmount(t.amountPHP || t.amount, 'PHP');
+    return sum + converted;
+  }, 0);
+
   const budgetRemaining = Math.max(0, totalBudget - totalSpent);
   const budgetPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
@@ -67,7 +105,7 @@ export const Dashboard = () => {
     .map(cat => {
       const spent = filteredTransactions
         .filter(t => t.category_id === cat.id)
-        .reduce((sum, t) => sum + convertAmount(t.amount || 0, t.currency), 0);
+        .reduce((sum, t) => sum + convertAmount(t.amountPHP || t.amount, 'PHP'), 0);
       return { name: cat.name, value: spent, color: cat.color };
     })
     .filter(cat => cat.value > 0);
@@ -75,7 +113,7 @@ export const Dashboard = () => {
   // Transactions non catégorisées
   const uncategorizedSpent = filteredTransactions
     .filter(t => !t.category_id)
-    .reduce((sum, t) => sum + convertAmount(t.amount || 0, t.currency), 0);
+    .reduce((sum, t) => sum + convertAmount(t.amountPHP || t.amount, 'PHP'), 0);
 
   if (uncategorizedSpent > 0) {
     categoryData.push({ name: 'Uncategorized', value: uncategorizedSpent, color: '#9CA3AF' });
@@ -84,9 +122,9 @@ export const Dashboard = () => {
   // Données pour les dépenses quotidiennes du mois
   const dailySpendingMap = new Map<string, number>();
   filteredTransactions.forEach(t => {
-    const date = new Date(t.date || t.transactionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const date = new Date(t.transactionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const current = dailySpendingMap.get(date) || 0;
-    dailySpendingMap.set(date, current + convertAmount(t.amount || 0, t.currency));
+    dailySpendingMap.set(date, current + convertAmount(t.amountPHP || t.amount, 'PHP'));
   });
 
   const dailyData = Array.from(dailySpendingMap.entries())
@@ -137,27 +175,26 @@ export const Dashboard = () => {
         </div>
       </div>
 
-{/* Carte principale - budget */}
-<Card isDashboard={true} className="relative overflow-hidden rounded-lg">
-  <div className="relative z-10 space-y-4 p-4">
-    <div>
-      <p className="text-white text-sm mb-1">Total Spent in {currentMonth}</p>
-      <p className="text-4xl font-bold text-white">{formatAmount(totalSpent)}</p>
-    </div>
-    <div className="flex items-center gap-2 text-sm">
-      <span className="text-white">
-        of {formatAmount(totalBudget)} budget
-      </span>
-      <div className="flex-1 h-2 bg-white/30 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-white rounded-full transition-all duration-500"
-          style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
-        />
-      </div>
-    </div>
-  </div>
-</Card>
-
+      {/* Carte principale - budget */}
+      <Card isDashboard={true} className="relative overflow-hidden rounded-lg">
+        <div className="relative z-10 space-y-4 p-4">
+          <div>
+            <p className="text-white text-sm mb-1">Total Spent in {currentMonth}</p>
+            <p className="text-4xl font-bold text-white">{formatAmount(totalSpent)}</p>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-white">
+              of {formatAmount(totalBudget)} budget
+            </span>
+            <div className="flex-1 h-2 bg-white/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </Card>
 
       {/* Statistiques */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -283,13 +320,13 @@ export const Dashboard = () => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-primary-dark dark:text-white">Recent Transactions - {currentMonth}</h2>
           <Link to="/transactions">
-<Button
-  variant="ghost"
-  size="sm"
-  className="text-green-400 dark:text-green-400 hover:bg-green-500/10 dark:hover:bg-green-500/20"
->
-  View All <ArrowRight className="w-4 h-4 ml-1" />
-</Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-green-400 dark:text-green-400 hover:bg-green-500/10 dark:hover:bg-green-500/20"
+            >
+              View All <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
           </Link>
         </div>
         {recentTransactions.length > 0 ? (
@@ -304,11 +341,13 @@ export const Dashboard = () => {
                     </div>
                     <div>
                       <p className="font-medium text-primary-dark dark:text-white">{transaction.description}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{category?.name || 'Uncategorized'} • {new Date(transaction.date || transaction.transactionDate).toLocaleDateString()}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{category?.name || 'Uncategorized'} • {new Date(transaction.transactionDate).toLocaleDateString()}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-expense dark:text-expense-dark">-{formatAmount(transaction.amount || 0, transaction.currency)}</p>
+                    <p className="font-semibold text-expense dark:text-expense-dark">
+                      -{formatAmount(convertAmount(transaction.amountPHP || transaction.amount, 'PHP'))}
+                    </p>
                   </div>
                 </div>
               );
