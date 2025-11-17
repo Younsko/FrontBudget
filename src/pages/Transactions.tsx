@@ -448,6 +448,8 @@ const filteredTransactions = transactions.filter(t => {
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
           {/* OCR Section */}
           <div className="p-3 lg:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <h3 className="font-semibold text-sm lg:text-base text-blue-800 dark:text-blue-300 mb-2 lg:mb-3 flex items-center gap-2">
@@ -540,6 +542,7 @@ const filteredTransactions = transactions.filter(t => {
             <label className="block text-sm font-medium text-primary-dark dark:text-primary-light mb-2">
               Date
             </label>
+            <div className="grid grid-cols-3 gap-3">
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Day</label>

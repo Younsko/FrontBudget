@@ -5,8 +5,8 @@ interface CardProps {
   className?: string;
   hover?: boolean;
   glass?: boolean;
-  style?: React.CSSProperties; // Ajout d'une prop pour le style personnalisé
-  isDashboard?: boolean; // Prop pour savoir si on est dans le dashboard
+  style?: React.CSSProperties;
+  isDashboard?: boolean;
 }
 
 export const Card = ({ children, className = '', hover = false, glass = false, style, isDashboard = false }: CardProps) => {
