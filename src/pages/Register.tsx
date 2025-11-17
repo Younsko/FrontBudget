@@ -24,8 +24,8 @@ export const Register = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<RegisterForm>({
-    defaultValues: { currency: 'EUR' }
+ const { register, handleSubmit, watch, formState: { errors } } = useForm<RegisterForm>({
+    defaultValues: { currency: 'PHP' } 
   });
 
   const password = watch('password');
@@ -121,15 +121,15 @@ export const Register = () => {
                   {...register('currency', { required: 'Currency is required' })}
                   className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-secondary-dark text-primary-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-primary-light focus:border-transparent transition-all duration-200"
                 >
-                  <option value="EUR">EUR - Euro</option>
-                  <option value="USD">USD - US Dollar</option>
-                  <option value="GBP">GBP - British Pound</option>
-                  <option value="CAD">CAD - Canadian Dollar</option>
-                  <option value="PHP">PHP - Philippine Peso</option>
-                  <option value="JPY">JPY - Japanese Yen</option>
-                  <option value="AUD">AUD - Australian Dollar</option>
-                  <option value="CHF">CHF - Swiss Franc</option>
-                </select>
+                <option value="PHP">PHP - Philippine Peso</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="USD">USD - US Dollar</option>
+                <option value="GBP">GBP - British Pound</option>
+                <option value="CAD">CAD - Canadian Dollar</option>
+                <option value="CHF">CHF - Swiss Franc</option>
+                <option value="JPY">JPY - Japanese Yen</option>
+                <option value="AUD">AUD - Australian Dollar</option>
+              </select>
               </div>
               {errors.currency && (
                 <p className="mt-1 text-sm text-expense">{errors.currency.message}</p>

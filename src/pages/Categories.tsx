@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, TrendingUp, Activity } from "lucide-react";
+import { Plus, Edit2, Trash2, TrendingUp, Activity, Lock } from "lucide-react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Modal } from "../components/Modal";
@@ -55,10 +55,10 @@ export const Categories = () => {
   const { currency, formatAmount, convertAmount } = useCurrency();
   const [selectedDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [editingBudget, setEditingBudget] = useState<MonthlyBudget | null>(null);
   const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
 
-  // Fixed: Added refetch and better error handling
+  // ✅ Récupérer les budgets mensuels (initialisés automatiquement côté backend)
   const { 
     data: monthlyBudgets = [], 
     isLoading: isBudgetsLoading,
@@ -73,7 +73,7 @@ export const Categories = () => {
     cacheTime: 0,
   });
 
-  // Fixed: Added refetch, disabled caching, and error handling
+  // ✅ Récupérer les catégories (sans budget, car géré via monthlyBudgets)
   const { 
     data: categories = [], 
     isLoading: isCategoriesLoading,
@@ -83,11 +83,10 @@ export const Categories = () => {
   } = useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: categoriesAPI.getAll,
-    staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache
+    staleTime: 0,
+    cacheTime: 0,
   });
 
-  // Add refetch on mount to ensure fresh data
   useEffect(() => {
     refetchCategories();
     refetchBudgets();
@@ -95,7 +94,7 @@ export const Categories = () => {
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
-  // Fixed: Improved cache invalidation with refetch
+  // ✅ Mutation pour créer une catégorie (sans budget initial)
   const createMutation = useMutation({
     mutationFn: categoriesAPI.create,
     onSuccess: () => {
@@ -103,7 +102,6 @@ export const Categories = () => {
       queryClient.invalidateQueries({ queryKey: ["monthlyBudgets"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      // Force refetch to ensure UI updates
       setTimeout(() => {
         refetchCategories();
         refetchBudgets();
@@ -114,7 +112,7 @@ export const Categories = () => {
     },
   });
 
-  // Fixed: Improved cache invalidation with refetch
+  // ✅ Mutation pour mettre à jour une catégorie (nom et couleur seulement)
   const updateCategoryMutation = useMutation({
     mutationFn: ({ id, data }: { id: string | number; data: Partial<Category> }) => 
       categoriesAPI.update(String(id), data),
@@ -124,11 +122,12 @@ export const Categories = () => {
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       setTimeout(() => {
         refetchCategories();
+        refetchBudgets();
       }, 100);
     },
   });
 
-  // Fixed: Improved cache invalidation with refetch
+  // ✅ Mutation pour mettre à jour le budget du mois actuel
   const updateBudgetMutation = useMutation({
     mutationFn: ({ categoryId, budgetAmount }: { categoryId: string; budgetAmount: number }) =>
       monthlyBudgetsAPI.updateBudget(categoryId, budgetAmount),
@@ -141,7 +140,6 @@ export const Categories = () => {
     },
   });
 
-  // Fixed: Improved cache invalidation with refetch
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => categoriesAPI.delete(String(id)),
     onSuccess: () => {
@@ -156,60 +154,89 @@ export const Categories = () => {
     },
   });
 
-  // Fixed: Reset form when modal opens
   useEffect(() => {
-    if (isModalOpen && editingCategory) {
-      setValue('name', editingCategory.name);
-      const budget = monthlyBudgets.find(b => b.categoryId === editingCategory.id)?.budgetAmount || 0;
-      setValue('budget', budget);
-      setSelectedColor(editingCategory.color);
+    if (isModalOpen && editingBudget) {
+      const category = categories.find(c => c.id === editingBudget.categoryId);
+      if (category) {
+        setValue('name', category.name);
+        setValue('color', category.color);
+      }
+      setValue('budget', editingBudget.budgetAmount || 0);
+      setSelectedColor(category?.color || PRESET_COLORS[0]);
     } else if (isModalOpen) {
       reset();
       setSelectedColor(PRESET_COLORS[0]);
     }
-  }, [isModalOpen, editingCategory, monthlyBudgets, setValue, reset]);
+  }, [isModalOpen, editingBudget, categories, monthlyBudgets, setValue, reset]);
 
   const handleOpenModal = (budget?: MonthlyBudget) => {
     if (budget) {
-      const category = categories.find(c => c.id === budget.categoryId);
-      if (category) {
-        setEditingCategory(category);
-      }
+      setEditingBudget(budget);
     } else {
-      setEditingCategory(null);
+      setEditingBudget(null);
     }
     setIsModalOpen(true);
   };
 
   const onSubmit = (data: any) => {
-    if (editingCategory) {
-      const categoryUpdate = {
-        name: data.name,
-        color: selectedColor,
-      };
-      
-      updateCategoryMutation.mutate({ 
-        id: editingCategory.id, 
-        data: categoryUpdate 
-      });
-      
-      updateBudgetMutation.mutate({
-        categoryId: String(editingCategory.id),
-        budgetAmount: parseFloat(data.budget) || 0,
-      });
-      
-      setIsModalOpen(false);
-      setEditingCategory(null);
-    } else {
-      const payload = {
-        name: data.name,
-        color: selectedColor,
-        budget: parseFloat(data.budget) || 0,
-      };
-      createMutation.mutate(payload);
-    }
-  };
+  if (editingBudget) {
+    const category = categories.find(c => c.id === editingBudget.categoryId);
 
+    // Vérifier si le mois est éditable
+    if (!editingBudget.isEditable) {
+      alert("Cannot modify budgets for past months");
+      return;
+    }
+
+    // Étape 1 : Mettre à jour le budget
+    updateBudgetMutation.mutate(
+      {
+        categoryId: String(editingBudget.categoryId),
+        budgetAmount: parseFloat(data.budget) || 0,
+      },
+      {
+        onSuccess: () => {
+          // Étape 2 : Mettre à jour le nom et la couleur
+          if (category) {
+            updateCategoryMutation.mutate(
+              { id: category.id, data: { name: data.name, color: selectedColor } },
+              {
+                onSuccess: () => {
+                  // Étape 3 : fermer le modal
+                  setIsModalOpen(false);
+                  setEditingBudget(null);
+                  reset();
+                  setSelectedColor(PRESET_COLORS[0]);
+                },
+              }
+            );
+          } else {
+            // Si pas de catégorie trouvée, fermer quand même le modal
+            setIsModalOpen(false);
+            setEditingBudget(null);
+            reset();
+            setSelectedColor(PRESET_COLORS[0]);
+          }
+        },
+      }
+    );
+  } else {
+    // Création d'une nouvelle catégorie
+        const payload = { name: data.name, color: selectedColor };
+
+    createMutation.mutate(payload, {
+      onSuccess: async (newCategory) => {
+        // Créer le budget initial juste après
+        if (newCategory?.id) {
+          await updateBudgetMutation.mutateAsync({
+            categoryId: newCategory.id,
+            budgetAmount: parseFloat(data.budget) || 0,
+          });
+        }
+      }
+    });
+  }
+};
   const handleDelete = (id: string | number) => {
     if (window.confirm("Are you sure you want to delete this category? All associated transactions will be uncategorized.")) {
       deleteMutation.mutate(id);
@@ -246,22 +273,23 @@ export const Categories = () => {
     ];
   }, [monthlyBudgets, categories, formatAmount, convertAmount]);
 
-const budgetCategories = useMemo(() => {
-  return categories.map(category => {
-    const budget = monthlyBudgets.find(b => b.categoryId === category.id);
+  const budgetCategories = useMemo(() => {
+    return categories.map(category => {
+      const budget = monthlyBudgets.find(b => b.categoryId === category.id);
 
-    const convertedBudget = convertAmount(budget?.budgetAmount || 0, 'PHP');
-    const convertedSpent = convertAmount(budget?.spentThisMonth || 0, 'PHP');
+      const convertedBudget = convertAmount(budget?.budgetAmount || 0, 'PHP');
+      const convertedSpent = convertAmount(budget?.spentThisMonth || 0, 'PHP');
 
-    return {
-      category,
-      convertedBudget,
-      convertedSpent
-    };
-  });
-}, [monthlyBudgets, categories, convertAmount]);
+      return {
+        category,
+        budget,
+        convertedBudget,
+        convertedSpent,
+        isEditable: budget?.isEditable ?? false // ✅ Ajout du flag éditable
+      };
+    });
+  }, [monthlyBudgets, categories, convertAmount]);
 
-  // Show loading state
   if (isCategoriesLoading || isBudgetsLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -270,7 +298,6 @@ const budgetCategories = useMemo(() => {
     );
   }
 
-  // Show error state
   if (isError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
@@ -286,7 +313,6 @@ const budgetCategories = useMemo(() => {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
 
-      {/* Header with Refresh Button */}
       <div className="flex items-center justify-between">
         <h1 className={`text-3xl font-bold ${isDark ? "text-white" : "text-primary-dark"}`}>
           Categories
@@ -326,14 +352,14 @@ const budgetCategories = useMemo(() => {
 
       {/* Categories Grid */}
       <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${budgetCategories.length === 0 ? 'pt-8' : ''}`}>
-        {budgetCategories.map(({ category, convertedBudget, convertedSpent }) => {
+        {budgetCategories.map(({ category, budget, convertedBudget, convertedSpent, isEditable }) => {
           if (!category) return null;
 
           const spent = convertedSpent || 0;
-          const budget = convertedBudget || 0;
-          const percentage = budget > 0 ? (spent / budget) * 100 : 0;
-          const remaining = Math.max(0, budget - spent);
-          const isOverBudget = spent > budget;
+          const budgetAmount = convertedBudget || 0;
+          const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
+          const remaining = Math.max(0, budgetAmount - spent);
+          const isOverBudget = spent > budgetAmount;
 
           return (
             <Card
@@ -346,17 +372,20 @@ const budgetCategories = useMemo(() => {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold text-white">{category.name}</h3>
-                    <p className="text-sm text-white/90">{formatAmount(budget)} Budget</p>
+                    <p className="text-sm text-white/90">{formatAmount(budgetAmount)} Budget</p>
+                    {/* ✅ Indicateur si mois verrouillé */}
+                    {!isEditable && (
+                      <div className="flex items-center gap-1 mt-1 text-xs text-white/70">
+                        <Lock className="w-3 h-3" />
+                        <span>Past month (read-only)</span>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => handleOpenModal({ 
-                        categoryId: category.id, 
-                        budgetAmount: budget, 
-                        spentThisMonth: spent,
-                        currency: currency 
-                      })}
+                      onClick={() => handleOpenModal(budget)}
                       className="p-2 bg-white/20 border border-white/50 rounded-lg hover:bg-white/30 transition-colors"
+                      title={isEditable ? "Edit category" : "View only (past month)"}
                     >
                       <Edit2 className="w-4 h-4 text-white" />
                     </button>
@@ -425,14 +454,26 @@ const budgetCategories = useMemo(() => {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setEditingCategory(null);
+          setEditingBudget(null);
           reset();
           setSelectedColor(PRESET_COLORS[0]);
         }}
-        title={editingCategory ? "Edit Category" : "New Category"}
+        title={editingBudget ? (editingBudget.isEditable ? "Edit Category" : "View Category (Past Month)") : "New Category"}
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* ✅ Warning si mois passé */}
+          {editingBudget && !editingBudget.isEditable && (
+            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Lock className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                  You are viewing a past month's budget. You can only edit the category name and color, not the budget amount.
+                </p>
+              </div>
+            </div>
+          )}
+
           <Input
             label="Category Name"
             placeholder="Food & Dining"
@@ -441,21 +482,24 @@ const budgetCategories = useMemo(() => {
             className="bg-secondary dark:bg-secondary-dark-lighter text-black"
             placeholderClassName="text-gray-500 dark:text-gray-300"
             labelClassName="text-primary-dark dark:text-white"
+            disabled={editingBudget && !editingBudget.isEditable}
           />
 
+          {/* ✅ Budget modifiable seulement si mois actuel/futur */}
           <Input
             label="Monthly Budget"
             type="number"
             step="0.01"
             placeholder="0.00"
             {...register("budget", { 
-              required: "Budget is required", 
+              required: editingBudget ? false : "Budget is required", 
               min: { value: 0, message: "Budget must be positive" } 
             })}
             error={errors.budget?.message as string}
             className="bg-secondary dark:bg-secondary-dark-lighter text-black"
             placeholderClassName="text-gray-500 dark:text-gray-300"
             labelClassName="text-primary-dark dark:text-white"
+            disabled={editingBudget && !editingBudget.isEditable}
           />
 
           <div>
@@ -474,6 +518,7 @@ const budgetCategories = useMemo(() => {
                       : "hover:scale-105"
                   }`}
                   style={{ backgroundColor: color }}
+                  disabled={editingBudget && !editingBudget.isEditable}
                 />
               ))}
             </div>
@@ -486,21 +531,23 @@ const budgetCategories = useMemo(() => {
               fullWidth
               onClick={() => {
                 setIsModalOpen(false);
-                setEditingCategory(null);
+                setEditingBudget(null);
                 reset();
                 setSelectedColor(PRESET_COLORS[0]);
               }}
             >
-              Cancel
+              {editingBudget && !editingBudget.isEditable ? "Close" : "Cancel"}
             </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              disabled={createMutation.isPending || updateCategoryMutation.isPending || updateBudgetMutation.isPending}
-            >
-              {editingCategory ? "Update" : "Create"} Category
-            </Button>
+            {(!editingBudget || editingBudget.isEditable) && (
+              <Button
+                type="submit"
+                variant="primary"
+                fullWidth
+                disabled={createMutation.isPending || updateCategoryMutation.isPending || updateBudgetMutation.isPending}
+              >
+                {editingBudget ? "Update" : "Create"} Category
+              </Button>
+            )}
           </div>
         </form>
       </Modal>

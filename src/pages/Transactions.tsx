@@ -19,7 +19,7 @@ export const Transactions = () => {
   const [filterCategory, setFilterCategory] = useState('');
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
-  const { formatAmountWithOriginal} = useCurrency();
+  const { formatAmountWithOriginal } = useCurrency();
 
   const { data: transactionsResponse, isLoading } = useQuery({
     queryKey: ['transactions'],
@@ -70,85 +70,85 @@ export const Transactions = () => {
     },
   });
 
-const handleOcrFromUrl = async () => {
-  let validatedUrl = imageUrl;
-  
-  // Validation de l'URL
-  try {
-    validatedUrl = imageUrl.startsWith('http') ? imageUrl : 'https://' + imageUrl;
-    new URL(validatedUrl);
-  } catch {
-    alert('Please enter a valid URL (include http:// or https://)');
-    return;
-  }
-
-  setIsOcrLoading(true);
-  
-  try {
-    console.log('Sending OCR request for URL:', validatedUrl);
-
-    const ocrResult = await transactionsAPI.ocrPreview(validatedUrl);
+  const handleOcrFromUrl = async () => {
+    let validatedUrl = imageUrl;
     
-    console.log('OCR Response:', ocrResult);
-
-    if (ocrResult?.amount !== null && ocrResult?.amount !== undefined) {
-      setValue('amount', parseFloat(ocrResult.amount.toString()));
-    } else {
-      setValue('amount', '');
+    // Validation de l'URL
+    try {
+      validatedUrl = imageUrl.startsWith('http') ? imageUrl : 'https://' + imageUrl;
+      new URL(validatedUrl);
+    } catch {
+      alert('Please enter a valid URL (include http:// or https://)');
+      return;
     }
 
-    if (ocrResult?.currency) {
-      setValue('currency', ocrResult.currency);
-    } else {
-      setValue('currency', 'EUR');
-    }
+    setIsOcrLoading(true);
+    
+    try {
+      console.log('Sending OCR request for URL:', validatedUrl);
 
-    if (ocrResult?.description) {
-      setValue('description', ocrResult.description);
-    }
-
-    if (ocrResult?.date) {
-      try {
-        const dateParts = ocrResult.date.split('-');
-        if (dateParts.length === 3) {
-          const [day, month, year] = dateParts;
-          setValue('day', parseInt(day, 10));
-          setValue('month', parseInt(month, 10));
-          setValue('year', parseInt(year, 10));
-        }
-      } catch (dateError) {
-        console.error('Error parsing OCR date:', dateError);
-      }
-    }
-
-    if (ocrResult?.categoryName) {
-      const matchingCategory = categories.find(
-        cat => cat.name === ocrResult.categoryName
-      );
+      const ocrResult = await transactionsAPI.ocrPreview(validatedUrl);
       
-      if (matchingCategory) {
-        setValue('category_id', matchingCategory.id);
-        console.log(`✅ Auto-selected category: ${matchingCategory.name} (ID: ${matchingCategory.id})`);
+      console.log('OCR Response:', ocrResult);
+
+      if (ocrResult?.amount !== null && ocrResult?.amount !== undefined) {
+        setValue('amount', parseFloat(ocrResult.amount.toString()));
       } else {
-        console.log(`⚠️ Category "${ocrResult.categoryName}" not found in user's categories`);
+        setValue('amount', '');
       }
+
+      if (ocrResult?.currency) {
+        setValue('currency', ocrResult.currency);
+      } else {
+        setValue('currency', 'EUR');
+      }
+
+      if (ocrResult?.description) {
+        setValue('description', ocrResult.description);
+      }
+
+      if (ocrResult?.date) {
+        try {
+          const dateParts = ocrResult.date.split('-');
+          if (dateParts.length === 3) {
+            const [day, month, year] = dateParts;
+            setValue('day', parseInt(day, 10));
+            setValue('month', parseInt(month, 10));
+            setValue('year', parseInt(year, 10));
+          }
+        } catch (dateError) {
+          console.error('Error parsing OCR date:', dateError);
+        }
+      }
+
+      if (ocrResult?.categoryName) {
+        const matchingCategory = categories.find(
+          cat => cat.name === ocrResult.categoryName
+        );
+        
+        if (matchingCategory) {
+          setValue('category_id', matchingCategory.id);
+          console.log(`✅ Auto-selected category: ${matchingCategory.name} (ID: ${matchingCategory.id})`);
+        } else {
+          console.log(`⚠️ Category "${ocrResult.categoryName}" not found in user's categories`);
+        }
+      }
+      
+      if (ocrResult?.amount || ocrResult?.description) {
+        console.log('OCR data successfully applied to form');
+      } else {
+        console.log('No data detected from OCR');
+      }
+      
+      setImageUrl('');
+      
+    } catch (error) {
+      console.error('OCR processing error:', error);
+      alert('Failed to process receipt image. Please check the URL and try again.\n\nMake sure:\n- The URL is publicly accessible\n- The image is clear and readable\n- The image format is supported (JPG, PNG, etc.)');
+    } finally {
+      setIsOcrLoading(false);
     }
-    
-    if (ocrResult?.amount || ocrResult?.description) {
-      console.log('OCR data successfully applied to form');
-    } else {
-      console.log('No data detected from OCR');
-    }
-    
-    setImageUrl('');
-    
-  } catch (error) {
-    console.error('OCR processing error:', error);
-    alert('Failed to process receipt image. Please check the URL and try again.\n\nMake sure:\n- The URL is publicly accessible\n- The image is clear and readable\n- The image format is supported (JPG, PNG, etc.)');
-  } finally {
-    setIsOcrLoading(false);
-  }
-};
+  };
 
   const handleOpenModal = (transaction?: Transaction) => {
     if (transaction) {
@@ -208,14 +208,11 @@ const handleOcrFromUrl = async () => {
     }
   };
 
-const filteredTransactions = transactions.filter(t => {
-  if (!filterCategory) return true;
-  return String(t.category_id || '') === String(filterCategory);
-});
-
-
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
+  const filteredTransactions = transactions.filter(t => {
+    if (!filterCategory) return true;
+    return String(t.category_id || '') === String(filterCategory);
+  });
+const years = Array.from({ length: 2100 - 1900 + 1 }, (_, i) => 1900 + i);
   const months = [
     { value: 1, label: 'January' },
     { value: 2, label: 'February' },
@@ -331,11 +328,10 @@ const filteredTransactions = transactions.filter(t => {
                       )}
                     </td>
                     <td className="py-4 px-4 text-right font-semibold text-expense dark:text-expense-dark">
-                     {formatAmountWithOriginal(
-    transaction.originalAmount || transaction.amount,
-    transaction.originalCurrency || transaction.currency
-  )}
-
+                      {formatAmountWithOriginal(
+                        transaction.originalAmount || transaction.amount,
+                        transaction.originalCurrency || transaction.currency
+                      )}
                     </td>
                     <td className="py-4 px-4 text-center text-gray-600 dark:text-gray-400">
                       {transaction.currency}
@@ -398,15 +394,14 @@ const filteredTransactions = transactions.filter(t => {
                       )}
                     </div>
                   </div>
-                 <div className="text-right">
-<p className="font-semibold text-expense dark:text-expense-dark">
-  {formatAmountWithOriginal(
-    transaction.originalAmount || transaction.amount,
-    transaction.originalCurrency || transaction.currency
-  )}
-</p>
+                  <div className="text-right">
+                    <p className="font-semibold text-expense dark:text-expense-dark">
+                      {formatAmountWithOriginal(
+                        transaction.originalAmount || transaction.amount,
+                        transaction.originalCurrency || transaction.currency
+                      )}
+                    </p>
                   </div>
-
                 </div>
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                   <button
@@ -448,8 +443,6 @@ const filteredTransactions = transactions.filter(t => {
         size="md"
       >
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h3 className="font-semibold text-blue-800 dark:text-blue-300 mb-3 flex items-center gap-2">
           {/* OCR Section */}
           <div className="p-3 lg:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
             <h3 className="font-semibold text-sm lg:text-base text-blue-800 dark:text-blue-300 mb-2 lg:mb-3 flex items-center gap-2">
@@ -542,7 +535,6 @@ const filteredTransactions = transactions.filter(t => {
             <label className="block text-sm font-medium text-primary-dark dark:text-primary-light mb-2">
               Date
             </label>
-            <div className="grid grid-cols-3 gap-3">
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Day</label>
@@ -562,6 +554,9 @@ const filteredTransactions = transactions.filter(t => {
                     </option>
                   ))}
                 </select>
+                {errors.day && (
+                  <p className="mt-1 text-xs text-expense dark:text-expense-dark">{errors.day.message as string}</p>
+                )}
               </div>
 
               <div>
@@ -582,6 +577,9 @@ const filteredTransactions = transactions.filter(t => {
                     </option>
                   ))}
                 </select>
+                {errors.month && (
+                  <p className="mt-1 text-xs text-expense dark:text-expense-dark">{errors.month.message as string}</p>
+                )}
               </div>
 
               <div>
@@ -602,6 +600,9 @@ const filteredTransactions = transactions.filter(t => {
                     </option>
                   ))}
                 </select>
+                {errors.year && (
+                  <p className="mt-1 text-xs text-expense dark:text-expense-dark">{errors.year.message as string}</p>
+                )}
               </div>
             </div>
           </div>
@@ -624,7 +625,7 @@ const filteredTransactions = transactions.filter(t => {
             </select>
           </div>
 
-          {/* Buttons - Maintenant scrollables */}
+          {/* Buttons */}
           <div className="flex flex-col-reverse sm:flex-row gap-3 pt-6 pb-2">
             <Button
               type="button"

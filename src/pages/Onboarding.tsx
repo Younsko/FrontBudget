@@ -6,7 +6,7 @@ import { Wallet, ArrowRight, X, SkipForward } from 'lucide-react';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { categoriesAPI } from '../services/api';
+import { categoriesAPI, monthlyBudgetsAPI } from '../services/api';
 import { useCurrency } from '../hooks/useCurrency';
 import { useAuthStore } from '../hooks/useAuth';
 
@@ -16,84 +16,85 @@ export const Onboarding = () => {
   const { isAuthenticated } = useAuthStore();
   const { currency, formatAmount } = useCurrency();
   
-  // ✅ CHANGEMENT 1 : Récupérer les vraies catégories du backend
   const { data: backendCategories, isLoading } = useQuery({
     queryKey: ['categories'],
     queryFn: () => categoriesAPI.getAll(),
     enabled: isAuthenticated,
   });
 
-  // ✅ CHANGEMENT 2 : État local avec les vraies catégories
-  const [categories, setCategories] = useState<Array<{
-    id: string;
-    name: string;
-    color: string;
+  const now = new Date();
+  const { data: monthlyBudgets } = useQuery({
+    queryKey: ['monthlyBudgets', now.getFullYear(), now.getMonth() + 1],
+    queryFn: () => monthlyBudgetsAPI.getMonthlyBudgets(now.getFullYear(), now.getMonth() + 1),
+    enabled: isAuthenticated && !!backendCategories,
+  });
+
+  const [budgets, setBudgets] = useState<Array<{
+    categoryId: string;
+    categoryName: string;
+    categoryColor: string;
     budget: number;
     enabled: boolean;
   }>>([]);
 
-  // ✅ CHANGEMENT 3 : Initialiser les catégories avec les données du backend
   useEffect(() => {
-    if (backendCategories && backendCategories.length > 0) {
-      const initialCategories = backendCategories.map(cat => ({
-        id: cat.id,
-        name: cat.name,
-        color: cat.color,
-        budget: cat.budget || 0,
-        enabled: true,
-      }));
-      setCategories(initialCategories);
+    if (backendCategories && monthlyBudgets) {
+      const initialBudgets = backendCategories.map(cat => {
+        const existingBudget = monthlyBudgets.find(b => b.categoryId === cat.id);
+        return {
+          categoryId: cat.id,
+          categoryName: cat.name,
+          categoryColor: cat.color,
+          budget: existingBudget?.budgetAmount || 0,
+          enabled: true,
+        };
+      });
+      setBudgets(initialBudgets);
     }
-  }, [backendCategories]);
+  }, [backendCategories, monthlyBudgets]);
 
-  // Rediriger si pas authentifié
   if (!isAuthenticated) {
     navigate('/login');
     return null;
   }
 
-  const updateCategoryMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => 
-      categoriesAPI.update(id, data),
+  const updateBudgetMutation = useMutation({
+    mutationFn: ({ categoryId, budgetAmount }: { categoryId: string; budgetAmount: number }) =>
+      monthlyBudgetsAPI.updateBudget(categoryId, budgetAmount),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['monthlyBudgets'] });
     },
   });
 
-  const handleBudgetChange = (id: string, budget: number) => {
-    const newCategories = categories.map(cat => 
-      cat.id === id ? { ...cat, budget } : cat
+  const handleBudgetChange = (categoryId: string, budget: number) => {
+    const newBudgets = budgets.map(b => 
+      b.categoryId === categoryId ? { ...b, budget } : b
     );
-    setCategories(newCategories);
+    setBudgets(newBudgets);
   };
 
-  const toggleCategory = (id: string) => {
-    const newCategories = categories.map(cat => 
-      cat.id === id ? { ...cat, enabled: !cat.enabled } : cat
+  const toggleCategory = (categoryId: string) => {
+    const newBudgets = budgets.map(b => 
+      b.categoryId === categoryId ? { ...b, enabled: !b.enabled } : b
     );
-    setCategories(newCategories);
+    setBudgets(newBudgets);
   };
 
   const handleComplete = async () => {
     try {
-      // ✅ CHANGEMENT 4 : Mettre à jour TOUTES les catégories activées (même budget 0)
-      const updates = categories
-        .filter(cat => cat.enabled)
-        .map(cat => {
-          return updateCategoryMutation.mutateAsync({
-            id: cat.id,
-            data: { 
-              name: cat.name,
-              color: cat.color,
-              budget: cat.budget 
-            }
+      const updates = budgets
+        .filter(b => b.enabled)
+        .map(b => {
+          return updateBudgetMutation.mutateAsync({
+            categoryId: b.categoryId,
+            budgetAmount: b.budget
           });
         });
 
       await Promise.all(updates);
       navigate('/dashboard');
     } catch (error) {
-      console.error('Error updating categories:', error);
+      console.error('Error updating budgets:', error);
       alert('Failed to save budgets. Please try again.');
     }
   };
@@ -102,8 +103,7 @@ export const Onboarding = () => {
     navigate('/dashboard');
   };
 
-  // ✅ Afficher un loader pendant le chargement des catégories
-  if (isLoading || categories.length === 0) {
+  if (isLoading || budgets.length === 0) {
     return (
       <div className="min-h-screen bg-chalk dark:bg-chalk-dark flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -111,8 +111,8 @@ export const Onboarding = () => {
     );
   }
 
-  const enabledCategories = categories.filter(cat => cat.enabled);
-  const totalBudget = enabledCategories.reduce((sum, cat) => sum + cat.budget, 0);
+  const enabledBudgets = budgets.filter(b => b.enabled);
+  const totalBudget = enabledBudgets.reduce((sum, b) => sum + b.budget, 0);
 
   return (
     <div className="min-h-screen bg-chalk dark:bg-chalk-dark flex items-center justify-center p-4">
@@ -132,34 +132,34 @@ export const Onboarding = () => {
               Set Your Monthly Budgets
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              Customize your budget categories. Disable categories you don't need or set budgets to 0 to skip them.
+              Customize your budget categories for {now.toLocaleString('en-US', { month: 'long', year: 'numeric' })}. Disable categories you don't need or set budgets to 0 to skip them.
             </p>
           </div>
 
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {categories.map((category) => (
-                <Card key={category.id} className={`p-4 relative transition-all duration-200 ${
-                  !category.enabled ? 'opacity-50 bg-gray-50 dark:bg-gray-800' : ''
+              {budgets.map((budget) => (
+                <Card key={budget.categoryId} className={`p-4 relative transition-all duration-200 ${
+                  !budget.enabled ? 'opacity-50 bg-gray-50 dark:bg-gray-800' : ''
                 }`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div 
                         className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: category.color }}
+                        style={{ backgroundColor: budget.categoryColor }}
                       />
                       <span className="font-medium text-primary-dark dark:text-white">
-                        {category.name}
+                        {budget.categoryName}
                       </span>
                     </div>
                     <button
-                      onClick={() => toggleCategory(category.id)}
+                      onClick={() => toggleCategory(budget.categoryId)}
                       className={`p-1 rounded-lg transition-colors ${
-                        category.enabled 
+                        budget.enabled 
                           ? 'text-expense hover:bg-expense/10' 
                           : 'text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
-                      title={category.enabled ? 'Disable category' : 'Enable category'}
+                      title={budget.enabled ? 'Disable category' : 'Enable category'}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -171,17 +171,17 @@ export const Onboarding = () => {
                     <Input
                       type="number"
                       placeholder="0.00"
-                      value={category.enabled && category.budget > 0 ? category.budget : ''}
-                      onChange={(e) => handleBudgetChange(category.id, parseFloat(e.target.value) || 0)}
+                      value={budget.enabled && budget.budget > 0 ? budget.budget : ''}
+                      onChange={(e) => handleBudgetChange(budget.categoryId, parseFloat(e.target.value) || 0)}
                       className="pl-8"
-                      disabled={!category.enabled}
+                      disabled={!budget.enabled}
                     />
                   </div>
                 </Card>
               ))}
             </div>
 
-            {enabledCategories.length > 0 && totalBudget > 0 && (
+            {enabledBudgets.length > 0 && totalBudget > 0 && (
               <Card className="bg-primary/5 dark:bg-primary/10 p-4">
                 <div className="flex justify-between items-center">
                   <span className="font-medium text-primary-dark dark:text-white">Total Monthly Budget:</span>
@@ -200,25 +200,25 @@ export const Onboarding = () => {
             </div>
           </div>
 
-<div className="flex justify-between items-center mt-8">
-  <Button
-    onClick={handleSkip}
-    variant="ghost"
-    className="flex items-center gap-2 group
-               text-primary DEFAULT dark:text-white
-               hover:text-primary-light dark:hover:text-primary"
-  >
-    <SkipForward className="w-4 h-4 group-hover:text-primary-light dark:group-hover:text-primary" />
-    Skip Setup
-  </Button>
-            
+          <div className="flex justify-between items-center mt-8">
+            <Button
+              onClick={handleSkip}
+              variant="ghost"
+              className="flex items-center gap-2 group
+                         text-primary DEFAULT dark:text-white
+                         hover:text-primary-light dark:hover:text-primary"
+            >
+              <SkipForward className="w-4 h-4 group-hover:text-primary-light dark:group-hover:text-primary" />
+              Skip Setup
+            </Button>
+              
             <Button
               onClick={handleComplete}
               variant="primary"
               className="flex items-center gap-2"
-              disabled={updateCategoryMutation.isPending}
+              disabled={updateBudgetMutation.isPending}
             >
-              {updateCategoryMutation.isPending ? 'Saving...' : 'Complete Setup'}
+              {updateBudgetMutation.isPending ? 'Saving...' : 'Complete Setup'}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </div>

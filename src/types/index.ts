@@ -32,13 +32,25 @@ export interface Category {
   id: string;
   name: string;
   color: string;
-  budget: number;
   user_id: string;
   spent?: number;
-  monthlyBudget?: number;
   spentThisMonth?: number;
   remainingBudget?: number;
   transactionCount?: number;
+  currentMonthBudget?: number; 
+}
+
+export interface MonthlyBudget {
+  categoryId: string;
+  categoryName: string;
+  categoryColor: string;
+  budgetAmount: number;
+  currency: string;
+  year: number;
+  month: number;
+  spentThisMonth: number;
+  remainingBudget: number;
+  isEditable: boolean;
 }
 
 export interface Stats {

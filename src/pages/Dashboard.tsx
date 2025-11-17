@@ -20,12 +20,20 @@ export const Dashboard = () => {
 
   const { currency, formatAmount, convertAmount } = useCurrency();
 
-  // ✅ NOUVEAU: Récupérer les budgets mensuels au lieu de stats
+  // ✅ CORRIGÉ: Récupérer les budgets mensuels avec les bons paramètres
   const { data: monthlyBudgets = [] } = useQuery({
     queryKey: ['monthlyBudgets', selectedDate.getFullYear(), selectedDate.getMonth() + 1],
     queryFn: () => monthlyBudgetsAPI.getMonthlyBudgets(
       selectedDate.getFullYear(),
       selectedDate.getMonth() + 1
+    ),
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories', selectedDate.getFullYear(), selectedDate.getMonth() + 1],
+    queryFn: () => categoriesAPI.getAll(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth() + 1
     ),
   });
 
@@ -35,34 +43,6 @@ export const Dashboard = () => {
     queryFn: transactionsAPI.getAll,
   });
 
-  // Récupérer les catégories
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: categoriesAPI.getAll,
-  });
-
-  // ✅ NOUVEAU: Mutation pour initialiser le mois
-  const initMonthMutation = useMutation({
-    mutationFn: ({ year, month }: { year: number; month: number }) =>
-      monthlyBudgetsAPI.initializeMonth(year, month),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['monthlyBudgets'] });
-    },
-  });
-
-  // ✅ NOUVEAU: Initialiser automatiquement le mois actuel si nécessaire
-  useEffect(() => {
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth() + 1;
-    
-    // Initialiser uniquement pour le mois actuel et si les budgets sont vides
-    if (monthlyBudgets.length === 0 && 
-        selectedDate.getFullYear() === currentYear && 
-        selectedDate.getMonth() + 1 === currentMonth) {
-      initMonthMutation.mutate({ year: currentYear, month: currentMonth });
-    }
-  }, [monthlyBudgets.length, selectedDate, initMonthMutation]);
-
   // Filtrer les transactions par mois sélectionné
   const filteredTransactions = allTransactions.filter(transaction => {
     const transactionDate = new Date(transaction.transactionDate); 
@@ -70,14 +50,14 @@ export const Dashboard = () => {
            transactionDate.getFullYear() === selectedDate.getFullYear();
   });
 
-  // ✅ NOUVEAU: Calcul du total budget depuis monthlyBudgets avec conversion
+  // ✅ CORRIGÉ: Calcul du total budget depuis monthlyBudgets avec conversion
   const totalBudget = monthlyBudgets.reduce((sum, b) => {
     // Convertir chaque budget dans la devise préférée de l'utilisateur
     const converted = convertAmount(b.budgetAmount, b.currency);
     return sum + converted;
   }, 0);
 
-  // ✅ NOUVEAU: Calcul des dépenses avec amountPHP converti
+  // ✅ CORRIGÉ: Calcul des dépenses avec amountPHP converti
   const totalSpent = filteredTransactions.reduce((sum, t) => {
     // Convertir depuis PHP (base de stockage) vers la devise préférée
     const converted = convertAmount(t.amountPHP || t.amount, 'PHP');
@@ -168,6 +148,7 @@ export const Dashboard = () => {
               onClick={() => navigateMonth('next')}
               className="p-2 hover:bg-secondary dark:hover:bg-secondary-dark-lighter rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               title="Next month"
+              disabled={!isCurrentMonth && selectedDate > new Date()} // ✅ Empêcher d'aller dans le futur
             >
               <ChevronRight className="w-5 h-5 text-primary-dark dark:text-primary-light" />
             </button>
